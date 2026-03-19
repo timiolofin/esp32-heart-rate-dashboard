@@ -50,7 +50,7 @@ Heart rate is one of the most accessible physiological signals measurable with l
 - Historical heart rate graph (line chart over time)
 - Signal quality indicator (good / poor / no signal)
 - Session log — list of recent reading sessions with timestamps
-- Min / max / average BPM per session
+- Min / Max / Average BPM per session
 
 ---
 
