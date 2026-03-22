@@ -6,12 +6,20 @@ This project is a cloud-connected physiological monitoring system that collects 
 
 ---
 
+## Use Case
+
+This system is designed for short, session-based heart rate monitoring using a fingertip optical sensor. A user places their finger on the MAX30102 sensor for a brief session (30–120 seconds), and the system records and visualizes heart rate trends.
+
+The system is designed to scale to multiple devices, where each sensor uploads data with a unique device ID and session ID. This allows the backend to distinguish between multiple users or sensors, similar to a multi-patient monitoring environment.
+
+---
+
 ## What Data Will Be Collected and Why
 
 **Data collected:**
 - Heart rate (BPM) — averaged over a short sampling window
 - Raw PPG signal amplitude (red/IR channel)
-- Signal quality confidence score
+- Signal quality indicator
 - Timestamp of each reading
 
 **Why:**  
@@ -67,6 +75,15 @@ PostgreSQL Database (stores timestamped readings)
     ↓ queries
 Web Dashboard (displays charts, live value, session history)
 ```
+
+---
+## Sampling Strategy
+
+- Sensor sampling rate: ~100 Hz (raw PPG signal)
+- Data transmission rate: every ~5 seconds (aggregated data)
+- Each transmission contains averaged BPM and metadata rather than raw high-frequency data
+
+This approach reduces network load while preserving meaningful physiological information.
 
 ---
 
