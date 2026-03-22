@@ -4,7 +4,7 @@
 
 This project is a cloud-connected physiological monitoring system that collects heart rate data from a MAX30102 optical sensor using an ESP32 microcontroller, transmits readings over Wi-Fi to a backend API, stores them in a database, and displays trends on a web dashboard. The system is designed as an end-to-end IoT pipeline with token-protected data transfer, cloud deployment via Docker, and a CI/CD workflow through GitHub Actions.
 
----
+
 
 ## Use Case
 
@@ -12,7 +12,7 @@ This system is designed for short, session-based heart rate monitoring using a f
 
 The system is designed to scale to multiple devices, where each sensor uploads data with a unique device ID and session ID. This allows the backend to distinguish between multiple users or sensors, similar to a multi-patient monitoring environment.
 
----
+
 
 ## What Data Will Be Collected and Why
 
@@ -25,7 +25,7 @@ The system is designed to scale to multiple devices, where each sensor uploads d
 **Why:**  
 Heart rate is one of the most accessible physiological signals measurable with low-cost optical hardware. Rather than building a generic environmental sensor, this project targets a more meaningful signal. The goal is to build a pipeline that can store and visualize pulse data in a way that is useful, interpretable, and technically interesting.
 
----
+
 
 ## Hardware
 
@@ -40,7 +40,7 @@ Heart rate is one of the most accessible physiological signals measurable with l
 **Communication:** MAX30102 → ESP32 over I2C (SDA/SCL)  
 **Data transmission:** ESP32 → Backend API over HTTP POST (Wi-Fi)
 
----
+
 ## Backend and Database (Planned)
 
 - **API Framework:** FastAPI (Python)
@@ -50,7 +50,7 @@ Heart rate is one of the most accessible physiological signals measurable with l
 - **CI/CD:** GitHub Actions 
 - **Deployment:** Docker + cloud host (AWS / Render / Railway)
 
----
+
 
 ## Web Dashboard (What the User Will See)
 
@@ -60,7 +60,7 @@ Heart rate is one of the most accessible physiological signals measurable with l
 - Session log — list of recent reading sessions with timestamps
 - Min / Max / Average BPM per session
 
----
+
 
 ## System Data Flow
 
@@ -76,7 +76,7 @@ PostgreSQL Database (stores timestamped readings)
 Web Dashboard (displays charts, live value, session history)
 ```
 
----
+
 ## Sampling Strategy
 
 - Sensor sampling rate: ~100 Hz (raw PPG signal)
@@ -85,7 +85,7 @@ Web Dashboard (displays charts, live value, session history)
 
 This approach reduces network load while preserving meaningful physiological information.
 
----
+
 
 ## Basic Goals
 
@@ -97,7 +97,7 @@ This approach reduces network load while preserving meaningful physiological inf
 - [ ] Backend and database run in Docker containers
 - [ ] CI/CD pipeline runs tests and deploys on push
 
----
+
 
 ## Stretch Goals
 
@@ -106,7 +106,7 @@ This approach reduces network load while preserving meaningful physiological inf
 - [ ] SpO₂ estimation from red/IR ratio
 - [ ] Multi-user session tracking (tag readings by session ID)
 
----
+
 
 ## Project Stack Summary
 
@@ -120,7 +120,7 @@ This approach reduces network load while preserving meaningful physiological inf
 | CI/CD | GitHub Actions |
 | Security | Bearer token (API key) |
 
----
+
 
 ## Timeline
 
