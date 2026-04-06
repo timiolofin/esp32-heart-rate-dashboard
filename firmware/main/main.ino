@@ -1,19 +1,22 @@
 #include <Wire.h>
+#include <WiFi.h>
 #include "MAX30105.h"
 #include "heartRate.h"
+#include "secrets.h"
 
 /*
   ============================================================
-  ESP32-S3 + MAX30102 Single-File Heart Rate Monitor
+  ESP32-S3 + MAX30102 Single-File Heart Rate Monitor + Wi-Fi
   ============================================================
 
   What this sketch does:
   1. Initializes the MAX30102 over I2C
-  2. Detects when a finger is placed on the sensor
-  3. Waits 3 seconds for a short calibration period
-  4. Detects heart beats from the IR signal
-  5. Prints BPM to the Serial Monitor
-  6. Resets cleanly when the finger is removed
+  2. Connects to one of multiple Wi-Fi networks
+  3. Detects when a finger is placed on the sensor
+  4. Waits 3 seconds for a short calibration period
+  5. Detects heart beats from the IR signal
+  6. Prints BPM to the Serial Monitor
+  7. Resets cleanly when the finger is removed
 
   Required Arduino libraries:
   - SparkFun MAX3010x Pulse and Proximity Sensor Library
@@ -34,28 +37,37 @@
 // Hardware configuration
 // ============================================================
 
-// I2C pins for your ESP32-S3 setup
 static const int SDA_PIN = 5;
 static const int SCL_PIN = 6;
 
-// Create MAX30102 sensor object
 MAX30105 sensor;
+
+
+// ============================================================
+// Wi-Fi configuration
+// ============================================================
+
+struct WiFiNetwork {
+  const char* ssid;
+  const char* password;
+};
+
+WiFiNetwork networks[] = {
+  {WIFI_SSID_1, WIFI_PASS_1}, // phone hotspot
+  {WIFI_SSID_2, WIFI_PASS_2}, // home Wi-Fi
+  {WIFI_SSID_3, WIFI_PASS_3}  // school Wi-Fi
+};
+
+const int NUM_NETWORKS = sizeof(networks) / sizeof(networks[0]);
+bool wifiConnected = false;
 
 
 // ============================================================
 // User-tunable settings
 // ============================================================
 
-// IR threshold used to decide whether a finger is present.
-// If finger detection is too sensitive, increase this value.
-// If it misses your finger, decrease this value.
 static const long FINGER_THRESHOLD = 50000;
-
-// Calibration time after finger is detected.
-// User asked for 3 seconds.
 static const unsigned long CALIBRATION_TIME_MS = 3000;
-
-// How often to print BPM after calibration is complete.
 static const unsigned long PRINT_INTERVAL_MS = 500;
 
 
@@ -63,8 +75,6 @@ static const unsigned long PRINT_INTERVAL_MS = 500;
 // Beat averaging settings
 // ============================================================
 
-// Number of most recent beat values used for rolling average BPM.
-// Higher = smoother but slower response.
 const byte RATE_SIZE = 8;
 byte rates[RATE_SIZE];
 byte rateSpot = 0;
@@ -74,15 +84,61 @@ byte rateSpot = 0;
 // Runtime state variables
 // ============================================================
 
-// Finger/session state
 bool fingerPresent = false;
 unsigned long fingerDetectedTime = 0;
 unsigned long lastPrintTime = 0;
 
-// Beat detection state
 long lastBeatTime = 0;
 float currentBPM = 0.0;
 int averageBPM = 0;
+
+
+// ============================================================
+// Helper: Wi-Fi connect
+// ============================================================
+
+bool connectToWiFi() {
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect(true, true);
+  delay(500);
+
+  Serial.print("ESP32 STA MAC: ");
+  Serial.println(WiFi.macAddress());
+
+  for (int i = 0; i < NUM_NETWORKS; i++) {
+    if (networks[i].ssid == nullptr || strlen(networks[i].ssid) == 0) {
+      continue;
+    }
+
+    Serial.print("Trying Wi-Fi: ");
+    Serial.println(networks[i].ssid);
+
+    WiFi.begin(networks[i].ssid, networks[i].password);
+
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+      delay(500);
+      Serial.print(".");
+      attempts++;
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println("\nWi-Fi connected.");
+      Serial.print("SSID: ");
+      Serial.println(WiFi.SSID());
+      Serial.print("IP: ");
+      Serial.println(WiFi.localIP());
+      return true;
+    }
+
+    Serial.println("\nFailed. Moving to next network...");
+    WiFi.disconnect(true, true);
+    delay(500);
+  }
+
+  Serial.println("No Wi-Fi network connected.");
+  return false;
+}
 
 
 // ============================================================
@@ -134,24 +190,19 @@ int computeAverageBPM() {
 void updateBeatDetection(long irValue) {
   unsigned long now = millis();
 
-  // checkForBeat() returns true when a heartbeat is detected
   if (checkForBeat(irValue)) {
     long delta = now - lastBeatTime;
     lastBeatTime = now;
 
-    // Protect against divide-by-zero or nonsense timing
     if (delta <= 0) {
       return;
     }
 
-    // Convert time between beats into BPM
     currentBPM = 60.0 / (delta / 1000.0);
 
-    // Accept only realistic human BPM values
     if (currentBPM > 35 && currentBPM < 220) {
       rates[rateSpot] = (byte)currentBPM;
       rateSpot = (rateSpot + 1) % RATE_SIZE;
-
       averageBPM = computeAverageBPM();
     }
   }
@@ -184,7 +235,6 @@ void printCalibrationCountdown(unsigned long elapsedMs) {
     Serial.println("s");
   }
 
-  // Reset countdown display once calibration is complete
   if (elapsedMs >= CALIBRATION_TIME_MS) {
     lastSecondShown = -1;
   }
@@ -216,10 +266,8 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  // Start I2C on your chosen ESP32-S3 pins
   Wire.begin(SDA_PIN, SCL_PIN);
 
-  // Initialize MAX30102
   if (!sensor.begin(Wire, I2C_SPEED_FAST)) {
     Serial.println("ERROR: MAX30102 not found. Check wiring.");
     while (1) {
@@ -227,15 +275,6 @@ void setup() {
     }
   }
 
-  /*
-    Sensor configuration notes:
-    - ledBrightness: LED current / brightness
-    - sampleAverage: internal averaging
-    - ledMode: 2 = Red + IR
-    - sampleRate: sampling frequency in Hz
-    - pulseWidth: pulse width
-    - adcRange: ADC full-scale range
-  */
   byte ledBrightness = 60;
   byte sampleAverage = 4;
   byte ledMode = 2;
@@ -252,12 +291,17 @@ void setup() {
     adcRange
   );
 
-  // Turn on Red and IR LEDs, keep Green off
   sensor.setPulseAmplitudeRed(0x1F);
   sensor.setPulseAmplitudeIR(0x1F);
   sensor.setPulseAmplitudeGreen(0);
 
   resetSession();
+
+  wifiConnected = connectToWiFi();
+
+  if (!wifiConnected) {
+    Serial.println("Continuing without Wi-Fi for now.");
+  }
 
   Serial.println("Place finger on sensor...");
 }
@@ -271,9 +315,6 @@ void loop() {
   long irValue = sensor.getIR();
   unsigned long now = millis();
 
-  // ----------------------------------------------------------
-  // 1. Detect whether a finger is present
-  // ----------------------------------------------------------
   if (irValue < FINGER_THRESHOLD) {
     if (fingerPresent) {
       Serial.println("Finger removed. Resetting...");
@@ -285,24 +326,14 @@ void loop() {
     return;
   }
 
-  // ----------------------------------------------------------
-  // 2. Start a new session when finger first appears
-  // ----------------------------------------------------------
   if (!fingerPresent) {
     fingerPresent = true;
     fingerDetectedTime = now;
-
     Serial.println("Finger detected. Hold still for 3 seconds...");
   }
 
-  // ----------------------------------------------------------
-  // 3. Always keep updating beat detection while finger is on
-  // ----------------------------------------------------------
   updateBeatDetection(irValue);
 
-  // ----------------------------------------------------------
-  // 4. Wait through the short calibration window
-  // ----------------------------------------------------------
   unsigned long elapsedSinceFingerDetected = now - fingerDetectedTime;
 
   if (elapsedSinceFingerDetected < CALIBRATION_TIME_MS) {
@@ -311,9 +342,6 @@ void loop() {
     return;
   }
 
-  // ----------------------------------------------------------
-  // 5. After calibration, print BPM at fixed intervals
-  // ----------------------------------------------------------
   if (now - lastPrintTime >= PRINT_INTERVAL_MS) {
     lastPrintTime = now;
     printBPMStatus(irValue);

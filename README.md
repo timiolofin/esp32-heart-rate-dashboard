@@ -153,6 +153,10 @@ Current capabilities:
 - Performs short calibration (~3 seconds)
 - Computes and prints heart rate (BPM) via Serial
 
+Security note:
+- Wi-Fi credentials are stored locally in firmware/main/secrets.h
+- firmware/main/secrets.h is excluded from version control using .gitignore
+
 Next step:
 - Transmit BPM data over Wi-Fi to backend API
 
