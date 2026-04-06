@@ -126,7 +126,7 @@ This approach reduces network load while preserving meaningful physiological inf
 
 | Week | Milestone |
 |---|---|
-| 9 (now) | Project proposal, GitHub repo created |
+| 9  | Project proposal, GitHub repo created |
 | 10 | Hardware connected, sensor reading data locally |
 | 11 | Sensor → database pipeline working, API defined, tests written |
 | 12 | Dashboard working with charts |
@@ -134,5 +134,26 @@ This approach reduces network load while preserving meaningful physiological inf
 | 14 | In-class presentation |
 
 ---
+
+## Current Status
+
+- [x] Sensor connected and working locally
+- [x] Stable BPM detection on ESP32-S3
+- [ ] Wi-Fi data transmission
+- [ ] Backend API
+- [ ] Database integration
+- [ ] Web dashboard
+
+## Firmware
+
+The firmware is located in `/firmware/main.ino`.
+
+Current capabilities:
+- Detects finger presence using IR signal
+- Performs short calibration (~3 seconds)
+- Computes and prints heart rate (BPM) via Serial
+
+Next step:
+- Transmit BPM data over Wi-Fi to backend API
 
 *ECE-3824 — Spring 2026 | Temple University*
