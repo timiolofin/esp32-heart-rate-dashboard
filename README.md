@@ -98,16 +98,6 @@ This approach reduces network load while preserving meaningful physiological inf
 - [ ] CI/CD pipeline runs tests and deploys on push
 
 
-
-## Stretch Goals
-
-- [ ] Real-time dashboard updates (WebSockets or polling)
-- [ ] Signal quality analysis (classify readings as valid, noisy, or absent)
-- [ ] SpO₂ estimation from red/IR ratio
-- [ ] Multi-user session tracking (tag readings by session ID)
-
-
-
 ## Project Stack Summary
 
 | Layer | Technology |
