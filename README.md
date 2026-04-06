@@ -146,7 +146,7 @@ This approach reduces network load while preserving meaningful physiological inf
 
 ## Firmware
 
-The firmware is located in `/firmware/main.ino`.
+The firmware is located in `/firmware/main/main.ino`.
 
 Current capabilities:
 - Detects finger presence using IR signal
