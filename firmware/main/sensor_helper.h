@@ -16,8 +16,8 @@ static const int SCL_PIN = 6;
 
 MAX30105 sensor;
 
-static const long FINGER_THRESHOLD = 50000;
-static const unsigned long CALIBRATION_TIME_MS = 3000;
+static const long FINGER_THRESHOLD = 30000;
+static const unsigned long CALIBRATION_TIME_MS = 2000;
 static const unsigned long PRINT_INTERVAL_MS = 500;
 
 const byte RATE_SIZE = 8;

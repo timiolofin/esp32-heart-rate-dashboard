@@ -5,16 +5,16 @@
 #include "secrets.h"
 #include "wifi_helper.h"
 #include "sensor_helper.h"
+#include "http_helper.h"
 
 // ============================
 // Config
 // ============================
 
-const char* POST_URL = "http://192.168.0.17:8000/data";
 const char* DEVICE_ID = "esp32_001";
-const char* SESSION_ID = "session_001";
 
 bool wifiConnected = false;
+static unsigned long lastPost = 0;
 
 // ============================
 // Setup
@@ -24,10 +24,10 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  sensorInit();          // from sensor_helper.h
-  resetSession();        // from sensor_helper.h
+  sensorInit();
+  resetSession();
 
-  wifiConnected = connectToWiFi();  // from wifi_helper.h
+  wifiConnected = connectToWiFi();
 
   if (!wifiConnected) {
     Serial.println("Continuing without Wi-Fi for now.");
@@ -41,8 +41,18 @@ void setup() {
 // ============================
 
 void loop() {
-  long irValue = sensor.getIR();
   unsigned long now = millis();
+  long irValue = sensor.getIR();
+
+  if (now - lastPost >= 5000) {
+    lastPost = now;
+
+    int bpmToSend = averageBPM;
+    bool fingerDetected = (irValue >= FINGER_THRESHOLD);
+
+    Serial.println("Sending reading...");
+    sendHeartRateData(DEVICE_ID, bpmToSend, fingerDetected, irValue);
+  }
 
   if (irValue < FINGER_THRESHOLD) {
     if (fingerPresent) {

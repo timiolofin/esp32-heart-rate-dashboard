@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Heart Rate Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 50px;
+      background: #f4f4f4;
+    }
+    .card {
+      display: inline-block;
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      min-width: 300px;
+    }
+    .value {
+      font-size: 2rem;
+      margin: 10px 0;
+    }
+    .label {
+      color: #666;
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Live Heart Rate</h1>
+    <div class="label">BPM</div>
+    <div class="value" id="bpm">--</div>
+
+    <div class="label">Finger Detected</div>
+    <div class="value" id="finger">--</div>
+
+    <div class="label">Signal</div>
+    <div class="value" id="signal">--</div>
+
+    <div class="label">Timestamp</div>
+    <div class="value" id="timestamp" style="font-size:1rem;">--</div>
+  </div>
+
+  <script>
+    async function fetchLatest() {
+      try {
+        const response = await fetch('/latest');
+        const data = await response.json();
+
+        document.getElementById('bpm').textContent = data.bpm ?? '--';
+        document.getElementById('finger').textContent = data.finger_detected ? 'Yes' : 'No';
+        document.getElementById('signal').textContent = data.signal ?? '--';
+        document.getElementById('timestamp').textContent = data.timestamp ?? '--';
+      } catch (error) {
+        console.error('Failed to fetch latest reading:', error);
+      }
+    }
+
+    fetchLatest();
+    setInterval(fetchLatest, 2000);
+  </script>
+</body>
+</html>

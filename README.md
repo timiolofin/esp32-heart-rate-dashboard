@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project is a cloud-connected physiological monitoring system that collects heart rate data from a MAX30102 optical sensor using an ESP32 microcontroller, transmits readings over Wi-Fi to a backend API, stores them in a database, and displays trends on a web dashboard. The system is designed as an end-to-end IoT pipeline with token-protected data transfer, cloud deployment via Docker, and a CI/CD workflow through GitHub Actions.
+This project is a cloud-connected physiological monitoring system that collects heart rate data from a MAX30102 optical sensor using an ESP32 microcontroller, transmits readings over Wi-Fi to a backend API, stores them in a database, and displays trends on a web dashboard. The system is designed as an end-to-end IoT pipeline with token-protected data transfer and a live dashboard served directly from the backend.
 
 
 
@@ -33,7 +33,6 @@ Heart rate is one of the most accessible physiological signals measurable with l
 |---|---|
 | ESP32-S3 (with OLED) | Wi-Fi microcontroller — reads sensor, sends data |
 | MAX30102 sensor module | Optical heart rate sensor (red/IR PPG) |
-| Breadboard | Prototyping connections |
 | Jumper wires | GPIO wiring between ESP32 and sensor |
 | USB cable | Programming and power |
 
@@ -41,24 +40,34 @@ Heart rate is one of the most accessible physiological signals measurable with l
 **Data transmission:** ESP32 → Backend API over HTTP POST (Wi-Fi)
 
 
-## Backend and Database (Planned)
+
+## Backend and Database
 
 - **API Framework:** FastAPI (Python)
-- **Database:** PostgreSQL
-- **Auth:** Bearer token in request headers — all endpoints protected
-- **Logging:** Structured JSON logs per request
-- **CI/CD:** GitHub Actions 
-- **Deployment:** Docker + cloud host (AWS / Render / Railway)
+- **Database:** SQLite (local persistent storage)
+- **Auth:** Bearer token in request headers
+- **Endpoints:**
+  - `/data` — receive sensor data (POST)
+  - `/readings` — fetch recent readings
+  - `/latest` — fetch most recent reading
+  - `/dashboard` — live web dashboard
+
+Note: SQLite is used for lightweight local persistence. The system is designed to be easily upgraded to PostgreSQL for cloud deployment.
 
 
 
-## Web Dashboard (What the User Will See)
+## Web Dashboard
 
-- Current heart rate (live BPM value)
-- Historical heart rate graph (line chart over time)
-- Signal quality indicator (good / poor / no signal)
-- Session log — list of recent reading sessions with timestamps
-- Min / Max / Average BPM per session
+A live dashboard is implemented and served directly by the backend.
+
+**Features:**
+- Live BPM display
+- Finger detection status
+- Signal strength (IR value)
+- Timestamp of latest reading
+- Auto-refresh every ~2 seconds
+
+The dashboard fetches data from `/latest` and updates in real time.
 
 
 
@@ -71,10 +80,11 @@ ESP32-S3 (computes BPM)
     ↓ HTTP POST (token-protected, every ~5 seconds)
 FastAPI Backend (validates token, parses payload)
     ↓ writes
-PostgreSQL Database (stores timestamped readings)
+SQLite Database (stores timestamped readings)
     ↓ queries
-Web Dashboard (displays charts, live value, session history)
+Web Dashboard (displays live BPM, signal status, latest reading)
 ```
+
 
 
 ## Sampling Strategy
@@ -89,13 +99,14 @@ This approach reduces network load while preserving meaningful physiological inf
 
 ## Basic Goals
 
-- [ ] ESP32 reads valid heart rate data from MAX30102
-- [ ] ESP32 transmits readings over Wi-Fi to backend API
-- [ ] Backend validates token and stores readings in database
-- [ ] Web dashboard displays historical heart rate as a line chart
-- [ ] System is secured with token-based authentication
-- [ ] Backend and database run in Docker containers
-- [ ] CI/CD pipeline runs tests and deploys on push
+- [x] ESP32 reads valid heart rate data from MAX30102
+- [x] ESP32 transmits readings over Wi-Fi to backend API
+- [x] Backend validates token and stores readings in database
+- [x] Web dashboard displays live heart rate
+- [ ] Historical chart visualization
+- [ ] Docker deployment (optional)
+- [ ] CI/CD pipeline (optional)
+
 
 
 ## Project Stack Summary
@@ -104,11 +115,61 @@ This approach reduces network load while preserving meaningful physiological inf
 |---|---|
 | Firmware | Arduino framework (C++) |
 | API | FastAPI (Python) |
-| Database | PostgreSQL |
-| Frontend | Flask templates + Chart.js |
-| Deployment | Docker + cloud host |
-| CI/CD | GitHub Actions |
+| Database | SQLite |
+| Frontend | HTML + JavaScript (served by FastAPI) |
 | Security | Bearer token (API key) |
+
+
+
+## How to Run
+
+### Backend
+```bash
+cd backend
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+Then open:
+```
+http://<your-ip>:8000/dashboard
+```
+
+### ESP32
+- Flash firmware from `/firmware/main/`
+- Ensure Wi-Fi credentials are set in `secrets.h`
+- ESP32 will automatically connect and send data every ~5 seconds
+
+### Requirements
+- ESP32 and computer must be on the same local network
+
+
+
+## Current Status
+
+- [x] Sensor connected and working locally
+- [x] Stable BPM detection on ESP32-S3
+- [x] Wi-Fi data transmission working
+- [x] Backend API implemented (FastAPI)
+- [x] SQLite database integration complete
+- [x] Live dashboard implemented
+- [ ] BPM stabilization improvements
+- [ ] Historical chart visualization
+
+
+
+## Firmware
+
+The firmware files are located in `/firmware/main/`.
+
+Current capabilities:
+- Detects finger presence using IR signal
+- Performs short calibration (~3 seconds)
+- Computes and prints heart rate (BPM) via Serial
+- Transmits BPM data over Wi-Fi to backend API
+
+Security note:
+- Wi-Fi credentials are stored locally in `firmware/main/secrets.h`
+- `firmware/main/secrets.h` is excluded from version control using `.gitignore`
 
 
 
@@ -119,35 +180,10 @@ This approach reduces network load while preserving meaningful physiological inf
 | 9  | Project proposal, GitHub repo created |
 | 10 | Hardware connected, sensor reading data locally |
 | 11 | Sensor → database pipeline working, API defined, tests written |
-| 12 | Dashboard working with charts |
+| 12 | Dashboard working with live data |
 | 13 | Final polish — code, docs, spec files, README |
 | 14 | In-class presentation |
 
 ---
-
-## Current Status
-
-- [x] Sensor connected and working locally
-- [x] Stable BPM detection on ESP32-S3
-- [x] Wi-Fi data transmission
-- [ ] Backend API
-- [ ] Database integration
-- [ ] Web dashboard
-
-## Firmware
-
-The firmware files are located in `/firmware/main/`.
-
-Current capabilities:
-- Detects finger presence using IR signal
-- Performs short calibration (~3 seconds)
-- Computes and prints heart rate (BPM) via Serial
-
-Security note:
-- Wi-Fi credentials are stored locally in firmware/main/secrets.h
-- firmware/main/secrets.h is excluded from version control using .gitignore
-
-Next step:
-- Transmit BPM data over Wi-Fi to backend API
 
 *ECE-3824 — Spring 2026 | Temple University*
