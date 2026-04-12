@@ -129,14 +129,14 @@ This approach reduces network load while preserving meaningful physiological inf
 
 - [x] Sensor connected and working locally
 - [x] Stable BPM detection on ESP32-S3
-- [ ] Wi-Fi data transmission
+- [x] Wi-Fi data transmission
 - [ ] Backend API
 - [ ] Database integration
 - [ ] Web dashboard
 
 ## Firmware
 
-The firmware is located in `/firmware/main/main.ino`.
+The firmware files are located in `/firmware/main/`.
 
 Current capabilities:
 - Detects finger presence using IR signal
