@@ -1,4 +1,5 @@
 #pragma once
+
 #include <WiFi.h>
 #include "secrets.h"
 
@@ -7,13 +8,13 @@ struct WiFiNetwork {
   const char* password;
 };
 
-WiFiNetwork networks[] = {
+static WiFiNetwork networks[] = {
   {WIFI_SSID_1, WIFI_PASS_1},
   {WIFI_SSID_2, WIFI_PASS_2},
   {WIFI_SSID_3, WIFI_PASS_3}
 };
 
-const int NUM_NETWORKS = sizeof(networks) / sizeof(networks[0]);
+static const int NUM_NETWORKS = sizeof(networks) / sizeof(networks[0]);
 
 bool connectToWiFi() {
   WiFi.mode(WIFI_STA);
@@ -24,9 +25,7 @@ bool connectToWiFi() {
   Serial.println(WiFi.macAddress());
 
   for (int i = 0; i < NUM_NETWORKS; i++) {
-    if (networks[i].ssid == nullptr || strlen(networks[i].ssid) == 0) {
-      continue;
-    }
+    if (!networks[i].ssid || strlen(networks[i].ssid) == 0) continue;
 
     Serial.print("Trying Wi-Fi: ");
     Serial.println(networks[i].ssid);
@@ -54,6 +53,6 @@ bool connectToWiFi() {
     delay(500);
   }
 
-  Serial.println("No Wi-Fi network connected.");
+  Serial.println("No Wi-Fi connected.");
   return false;
 }

@@ -3,10 +3,20 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 
-static const char* API_URL = "http://192.168.0.17:8000/data";
+static const char* API_URL   = "http://192.168.0.17:8000/data";
 static const char* API_TOKEN = "test123";
 
-bool sendHeartRateData(const String& deviceId, int bpm, bool fingerDetected, long signal) {
+bool sendVitalData(
+  const String& deviceId,
+  int heartRate,
+  bool hrValid,
+  float spo2,
+  bool spo2Valid,
+  uint32_t irValue,
+  uint32_t redValue,
+  float ratio,
+  float correl
+) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("HTTP skipped: Wi-Fi not connected");
     return false;
@@ -19,10 +29,18 @@ bool sendHeartRateData(const String& deviceId, int bpm, bool fingerDetected, lon
 
   String json = "{";
   json += "\"device_id\":\"" + deviceId + "\",";
-  json += "\"bpm\":" + String(bpm) + ",";
-  json += "\"finger_detected\":" + String(fingerDetected ? "true" : "false") + ",";
-  json += "\"signal\":" + String(signal);
+  json += "\"heart_rate\":" + String(heartRate) + ",";
+  json += "\"hr_valid\":" + String(hrValid ? "true" : "false") + ",";
+  json += "\"spo2\":" + String(spo2, 1) + ",";
+  json += "\"spo2_valid\":" + String(spo2Valid ? "true" : "false") + ",";
+  json += "\"ir\":" + String(irValue) + ",";
+  json += "\"red\":" + String(redValue) + ",";
+  json += "\"ratio\":" + String(ratio, 4) + ",";
+  json += "\"correlation\":" + String(correl, 4);
   json += "}";
+
+  Serial.println("Sending JSON:");
+  Serial.println(json);
 
   int httpCode = http.POST(json);
   String response = http.getString();
