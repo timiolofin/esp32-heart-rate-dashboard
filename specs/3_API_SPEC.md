@@ -52,7 +52,7 @@ Content-Type: application/json
 ```json
 {
   "device_id": "esp32_001",
-  "session_id": "session_001",
+  "session_id": "session_1713556200000",
   "heart_rate": 76.0,
   "hr_valid": true,
   "spo2": 98.2,
@@ -72,7 +72,7 @@ All other fields are optional.
 {
   "message": "Data received",
   "device_id": "esp32_001",
-  "session_id": "session_001"
+  "session_id": "session_1713556200000"
 }
 ```
 
@@ -99,7 +99,7 @@ Authorization: Bearer test123
   "id": 42,
   "timestamp": "2026-04-14T08:35:10",
   "device_id": "esp32_001",
-  "session_id": "session_001",
+  "session_id": "session_1713556200000",
   "heart_rate": 76.0,
   "hr_valid": 1,
   "spo2": 98.2,
@@ -137,8 +137,8 @@ Authorization: Bearer test123
 {
   "count": 2,
   "readings": [
-    { "id": 43, "timestamp": "...", "heart_rate": 77.0, "..." : "..." },
-    { "id": 42, "timestamp": "...", "heart_rate": 76.0, "..." : "..." }
+    { "id": 43, "timestamp": "...", "heart_rate": 77.0, "...": "..." },
+    { "id": 42, "timestamp": "...", "heart_rate": 76.0, "...": "..." }
   ]
 }
 ```
@@ -147,10 +147,8 @@ Authorization: Bearer test123
 
 ## ESP32 to Backend Communication
 
-The firmware sends HTTP POST requests every ~2 seconds when a finger is detected.  
-Communication is over HTTPS to the Render-hosted backend.  
-The Bearer token is hardcoded in `http_helper.h` and injected into every request header.
+The firmware sends HTTP POST requests every 5 seconds when a finger is detected and a valid reading is available. Communication is over HTTPS to the Render-hosted backend. The Bearer token is hardcoded in `http_helper.h` and injected into every request header. If no valid reading has been produced yet (algorithms still warming up), the POST is skipped for that cycle.
 
 ## Frontend to Backend Communication
 
-The dashboard (`dashboard.html`) polls `/latest` and `/history` every 3 seconds using the browser `fetch()` API with the Bearer token in the request header. No server is needed to run the frontend — it is a static HTML file opened directly in the browser.
+The dashboard (`dashboard.html`) polls `/latest` and `/history` every 3 seconds using the browser `fetch()` API with the Bearer token in the request header. No server is needed to run the frontend — it is a static HTML file that can be opened directly in a browser or hosted on GitHub Pages.

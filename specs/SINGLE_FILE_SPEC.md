@@ -14,14 +14,14 @@ VitalSense is a cloud-connected physiological monitoring system. It collects hea
 
 ```
 MAX30102 Sensor
-    ↓ I2C (SDA/SCL)
+    ↓ I2C (SDA=GPIO5, SCL=GPIO6, INT=GPIO7)
 ESP32-S3 Firmware (Arduino/C++)
-    ↓ HTTPS POST — Bearer token — every ~2s
+    ↓ HTTPS POST — Bearer token — every 5s
 FastAPI Backend (Python) — Render cloud
     ↓ writes
 SQLite Database — readings.db
     ↓ queries (GET /latest, GET /history)
-Dashboard (HTML/JS) — local browser
+Dashboard (HTML/JS) — GitHub Pages / local browser
 ```
 
 ---
@@ -33,38 +33,48 @@ Dashboard (HTML/JS) — local browser
 | ESP32-S3 | Wi-Fi microcontroller — runs firmware, sends data |
 | MAX30102 | Optical pulse sensor — red/IR PPG signal |
 
-**I2C pins:** SDA = GPIO5, SCL = GPIO6
+**Wiring:**
+
+| ESP32-S3 | MAX30102 |
+|---|---|
+| 3.3V | VIN |
+| GND | GND |
+| GPIO5 | SDA |
+| GPIO6 | SCL |
+| GPIO7 | INT |
 
 ---
 
 ## Firmware
 
 **Language:** C++ (Arduino framework)  
-**Key files:** `main.ino`, `max30102.cpp`, `algorithm_by_RF.cpp`, `http_helper.h`, `wifi_helper.h`
+**Key files:** `main.ino`, `max30102.cpp/h`, `algorithm_by_RF.cpp/h`, `algorithm.cpp/h`, `median_filter.h`, `http_helper.h`, `wifi_helper.h`
 
-**Behavior:**
-- Initializes MAX30102 over I2C
-- Detects finger presence using IR threshold (>20000 = finger on)
-- Debounces finger on/off transitions
-- Generates HR and SpO2 estimates after 1.2s settle period
-- Sends JSON payload to backend every 2 seconds while finger is present
-- Stops transmitting on finger removal — last valid reading holds on dashboard
+**Signal Processing Pipeline:**
 
-**Payload sent:**
-```json
-{
-  "device_id": "esp32_001",
-  "session_id": "session_001",
-  "heart_rate": 76.0,
-  "hr_valid": true,
-  "spo2": 98.2,
-  "spo2_valid": true,
-  "ir": 102400,
-  "red": 97800,
-  "ratio": 0.98,
-  "correlation": 0.96
-}
-```
+Raw PPG samples are acquired at 100 Hz via interrupt on GPIO7 and written into a 100-sample ring buffer. Once the buffer is full, two algorithms run in parallel on every update cycle (every 10 new samples):
+
+- **RF algorithm** — autocorrelation-based periodicity detection for HR, red/IR ratio method for SpO2
+- **MAXIM algorithm** — peak detection reference implementation
+
+Results from both are passed through physiological validity gates. The RF result is preferred when valid; MAXIM is used as fallback. Valid readings are pushed into a 4-sample median filter. The median output is then smoothed by a two-layer debounce that limits value changes to 3 units per output cycle, preventing sudden jumps.
+
+**Output and Transmission Behavior:**
+- Waits 5 seconds after buffer fills before producing first output
+- Outputs one reading every 5 seconds
+- Holds last known good value between output cycles
+- Sends HTTP POST to backend only when a valid displayed value exists
+- Skips POST if no valid reading has been established yet
+
+**Session Management:**
+- Session ID is auto-generated from `millis()` at boot
+- Session ID regenerates if finger has been absent for more than 60 seconds
+- Brief removals under 60 seconds continue the same session
+
+**Finger Detection:**
+- Finger on: IR > 20000
+- Finger off: IR < 10000
+- On removal: all buffers, filters, and state are fully reset
 
 ---
 
@@ -100,9 +110,10 @@ Dashboard (HTML/JS) — local browser
 ## Frontend
 
 **Type:** Static HTML file (`dashboard.html`)  
-**Hosting:** Opened locally in browser  
+**Hosting:** GitHub Pages  
+**Live URL:** `https://timiolofin.github.io/esp32-heart-rate-dashboard/backend/dashboard.html`  
 **Polling:** Every 3 seconds via `fetch()` with Bearer token header  
-**Features:** Live BPM display, SpO2 arc gauge, animated ECG, dual-axis trend chart, bar chart with range color-coding, session/timestamp info, light/dark mode toggle
+**Features:** Live BPM display, SpO2 arc gauge, animated ECG, dual-axis trend chart, bar chart with range color-coding, session/timestamp info, finger detection status, last seen counter, light/dark mode toggle
 
 ---
 
@@ -138,12 +149,16 @@ cd backend && pytest test_main.py -v
 
 | Requirement | Status |
 |---|---|
-| Read HR from MAX30102 | Done |
-| ESP32 computes BPM | Done |
+| Read HR and SpO2 from MAX30102 | Done |
+| Dual-algorithm signal processing (RF + MAXIM) | Done |
+| Physiological validity gates | Done |
+| Median filter and output debounce | Done |
+| Finger detection and removal reset | Done |
+| Session ID auto-generation and regeneration after 60s | Done |
 | ESP32 sends data over Wi-Fi via HTTP POST | Done |
 | Backend validates token | Done |
 | Backend stores readings with timestamps | Done |
-| Dashboard displays HR trends | Done |
+| Dashboard displays HR and SpO2 trends | Done |
 | Multiple devices via device_id | Done |
 | Session-based collection via session_id | Done |
 | Docker-ready | Dockerfile present |
@@ -155,8 +170,8 @@ cd backend && pytest test_main.py -v
 
 - Replace SQLite with PostgreSQL for production scalability
 - WebSockets for true real-time push instead of polling
-- Auto-generate session_id on ESP32 using boot timestamp
-- Add user authentication on the dashboard
+- Hardware fix for MAX30102 clone board LED resistor issue for more consistent PPG signal
+- User authentication on the dashboard
 - Anomaly detection — alert when BPM goes outside normal range
 - Full Docker + CI/CD deployment pipeline
-- Input range validation on sensor fields (HR, SpO2 bounds checking)
+- Input range validation on sensor fields

@@ -82,13 +82,16 @@ Expected output: **15 passed**
 ## Hardware Validation
 
 The ESP32 firmware was validated through:
-- Serial monitor output confirming finger detection, settle period, and BPM computation
+- Serial monitor output confirming finger detection, 5s stabilization countdown, buffering progress, and BPM/SpO2 output
+- Confirmed finger removal triggers clean state reset and "Finger removed. Waiting..." message
+- Confirmed new session ID is generated after 60s of no finger placement
 - Live HTTP POST confirmations printed to serial (`HTTP code: 200`)
-- Visual confirmation on the dashboard that readings update in real time
+- Visual confirmation on the dashboard that readings update in real time with correct session ID
 
 ## Frontend Validation
 
 The dashboard was validated through:
 - Integration testing with live backend responses
 - Verified BPM, SpO2, session ID, and timestamp all populate correctly
+- Verified finger detection status indicator updates within 10 seconds of removal
 - Light and dark mode tested manually in browser
