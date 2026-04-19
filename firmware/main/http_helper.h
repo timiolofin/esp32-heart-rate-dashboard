@@ -8,6 +8,7 @@ static const char* API_TOKEN = "test123";
 
 bool sendVitalData(
   const String& deviceId,
+  const String& sessionId,
   int heartRate,
   bool hrValid,
   float spo2,
@@ -29,6 +30,7 @@ bool sendVitalData(
 
   String json = "{";
   json += "\"device_id\":\"" + deviceId + "\",";
+  json += "\"session_id\":\"" + sessionId + "\",";
   json += "\"heart_rate\":" + String(heartRate) + ",";
   json += "\"hr_valid\":" + String(hrValid ? "true" : "false") + ",";
   json += "\"spo2\":" + String(spo2, 1) + ",";

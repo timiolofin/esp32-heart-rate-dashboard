@@ -5,6 +5,12 @@ from typing import Optional
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import sqlite3
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 app = FastAPI()
 
@@ -15,6 +21,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 API_TOKEN = "test123"
 DB_FILE = "readings.db"
 EST = ZoneInfo("America/New_York")
@@ -22,6 +29,7 @@ EST = ZoneInfo("America/New_York")
 
 class SensorData(BaseModel):
     device_id: str
+    session_id: str
     heart_rate: float
     hr_valid: bool
     spo2: Optional[float] = None
@@ -40,6 +48,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT NOT NULL,
             device_id TEXT NOT NULL,
+            session_id TEXT,
             heart_rate REAL,
             hr_valid INTEGER,
             spo2 REAL,
@@ -50,6 +59,11 @@ def init_db():
             correlation REAL
         )
     """)
+    try:
+        cur.execute("ALTER TABLE readings ADD COLUMN session_id TEXT")
+        logging.info("Migrated: added session_id column")
+    except Exception:
+        pass
     conn.commit()
     conn.close()
 
@@ -96,17 +110,19 @@ def receive_data(payload: SensorData, authorization: str = Header(default="")):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     timestamp = datetime.now(EST).strftime("%Y-%m-%dT%H:%M:%S")
+    logging.info(f"Received payload: {payload}")
 
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO readings (
-            timestamp, device_id, heart_rate, hr_valid, spo2, spo2_valid,
-            ir, red, ratio, correlation
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            timestamp, device_id, session_id, heart_rate, hr_valid,
+            spo2, spo2_valid, ir, red, ratio, correlation
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         timestamp,
         payload.device_id,
+        payload.session_id,
         payload.heart_rate,
         int(payload.hr_valid),
         payload.spo2,
@@ -119,4 +135,4 @@ def receive_data(payload: SensorData, authorization: str = Header(default="")):
     conn.commit()
     conn.close()
 
-    return {"message": "Data received", "device_id": payload.device_id}
+    return {"message": "Data received", "device_id": payload.device_id, "session_id": payload.session_id}

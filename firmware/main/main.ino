@@ -4,7 +4,8 @@
 #include "wifi_helper.h"
 #include "http_helper.h"
 
-static const char* DEVICE_ID = "esp32_001";
+static const char* DEVICE_ID  = "esp32_001";
+static const char* SESSION_ID = "session_001";
 
 static const int SDA_PIN = 5;
 static const int SCL_PIN = 6;
@@ -14,29 +15,29 @@ static const uint32_t FINGER_OFF_THRESHOLD = 10000;
 
 static const unsigned long FINGER_ON_DEBOUNCE_MS  = 200;
 static const unsigned long FINGER_OFF_DEBOUNCE_MS = 300;
-static const unsigned long FINGER_SETTLE_MS       = 1200;
-static const unsigned long STATUS_PRINT_MS        = 1000;
-static const unsigned long SEND_INTERVAL_MS       = 2000;
+static const unsigned long FINGER_SETTLE_MS        = 1200;
+static const unsigned long STATUS_PRINT_MS         = 1000;
+static const unsigned long SEND_INTERVAL_MS        = 2000;
 
 bool fingerPresent = false;
 bool wifiConnected = false;
 
 unsigned long fingerDetectedAt = 0;
-unsigned long lastStatusPrint = 0;
-unsigned long lastSendAt = 0;
+unsigned long lastStatusPrint  = 0;
+unsigned long lastSendAt       = 0;
 
-unsigned long fingerOnCandidateAt = 0;
+unsigned long fingerOnCandidateAt  = 0;
 unsigned long fingerOffCandidateAt = 0;
-bool fingerOnCandidate = false;
+bool fingerOnCandidate  = false;
 bool fingerOffCandidate = false;
 
-uint32_t lastIrValue = 0;
+uint32_t lastIrValue  = 0;
 uint32_t lastRedValue = 0;
 
 void resetFingerDebounce() {
-  fingerOnCandidate = false;
-  fingerOffCandidate = false;
-  fingerOnCandidateAt = 0;
+  fingerOnCandidate    = false;
+  fingerOffCandidate   = false;
+  fingerOnCandidateAt  = 0;
   fingerOffCandidateAt = 0;
 }
 
@@ -55,9 +56,9 @@ void printSettling(uint32_t irValue, unsigned long elapsed) {
 void generateVitals(unsigned long now, int &heartRate, float &spo2) {
   float t = now / 1000.0f;
 
-  float hrWave1 = 4.0f * sinf(2.0f * PI * t / 27.0f);   
-  float hrWave2 = 2.0f * sinf(2.0f * PI * t / 11.1f);   
-  float spo2Wave = 0.6f * sinf(2.0f * PI * t / 33.0f);  
+  float hrWave1 = 4.0f * sinf(2.0f * PI * t / 27.0f);
+  float hrWave2 = 2.0f * sinf(2.0f * PI * t / 11.1f);
+  float spo2Wave = 0.6f * sinf(2.0f * PI * t / 33.0f);
 
   heartRate = (int)roundf(74.0f + hrWave1 + hrWave2);
   if (heartRate < 66) heartRate = 66;
@@ -92,7 +93,7 @@ void setup() {
 
 void loop() {
   uint32_t redValue = 0;
-  uint32_t irValue = 0;
+  uint32_t irValue  = 0;
   unsigned long now = millis();
 
   if (!maxim_max30102_read_fifo(&redValue, &irValue)) {
@@ -101,19 +102,19 @@ void loop() {
     return;
   }
 
-  lastIrValue = irValue;
+  lastIrValue  = irValue;
   lastRedValue = redValue;
 
   if (!fingerPresent) {
     if (irValue >= FINGER_ON_THRESHOLD) {
       if (!fingerOnCandidate) {
-        fingerOnCandidate = true;
-        fingerOnCandidateAt = now;
+        fingerOnCandidate    = true;
+        fingerOnCandidateAt  = now;
       } else if (now - fingerOnCandidateAt >= FINGER_ON_DEBOUNCE_MS) {
-        fingerPresent = true;
-        fingerDetectedAt = now;
-        lastSendAt = 0;
-        fingerOnCandidate = false;
+        fingerPresent      = true;
+        fingerDetectedAt   = now;
+        lastSendAt         = 0;
+        fingerOnCandidate  = false;
         Serial.println("Finger detected. Starting acquisition...");
       }
     } else {
@@ -130,25 +131,10 @@ void loop() {
   if (fingerPresent) {
     if (irValue < FINGER_OFF_THRESHOLD) {
       if (!fingerOffCandidate) {
-        fingerOffCandidate = true;
-        fingerOffCandidateAt = now;
+        fingerOffCandidate    = true;
+        fingerOffCandidateAt  = now;
       } else if (now - fingerOffCandidateAt >= FINGER_OFF_DEBOUNCE_MS) {
-        Serial.println("Finger removed. Resetting acquisition.");
-        
-        if (wifiConnected) {
-          sendVitalData(
-            DEVICE_ID,
-            0,
-            false,
-            0.0f,
-            false,
-            lastIrValue,
-            lastRedValue,
-            0.0f,
-            0.0f
-          );
-        }
-
+        Serial.println("Finger removed. Pausing transmission.");
         fingerPresent = false;
         resetFingerDebounce();
         delay(10);
@@ -169,28 +155,24 @@ void loop() {
     return;
   }
 
-  int heartRate = 0;
-  float spo2 = 0.0f;
+  int   heartRate = 0;
+  float spo2      = 0.0f;
   generateVitals(now, heartRate, spo2);
 
   if (now - lastStatusPrint >= STATUS_PRINT_MS) {
     lastStatusPrint = now;
-    Serial.print("IR: ");
-    Serial.print(lastIrValue);
-    Serial.print(" | RED: ");
-    Serial.print(lastRedValue);
-    Serial.print(" | HR: ");
-    Serial.print(heartRate);
-    Serial.print(" | SpO2: ");
-    Serial.print(spo2, 1);
+    Serial.print("IR: ");   Serial.print(lastIrValue);
+    Serial.print(" | RED: "); Serial.print(lastRedValue);
+    Serial.print(" | HR: ");  Serial.print(heartRate);
+    Serial.print(" | SpO2: "); Serial.print(spo2, 1);
     Serial.println(" | ");
   }
 
   if (now - lastSendAt >= SEND_INTERVAL_MS) {
     lastSendAt = now;
-
     sendVitalData(
       DEVICE_ID,
+      SESSION_ID,
       heartRate,
       true,
       spo2,
