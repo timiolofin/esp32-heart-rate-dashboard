@@ -77,7 +77,7 @@ Dashboard (HTML/JS) — static file, hosted on GitHub Pages
 
 **Signal Processing Pipeline:**
 
-The firmware runs two algorithms on every update cycle — the RF autocorrelation-based algorithm and the MAXIM peak-detection algorithm. Readings are filtered through a 4-sample median filter, validated against physiological ranges (HR: 75–105 BPM, SpO2: 95–100%), and smoothed with a two-layer debounce that limits output changes to 3 units per cycle. The RF algorithm is preferred when valid; MAXIM is used as fallback.
+The firmware runs two algorithms on every update cycle — the RF autocorrelation-based algorithm and the MAXIM peak-detection algorithm. Readings are filtered through a 4-sample median filter, validated against physiological ranges, and smoothed with a two-layer debounce. The RF algorithm is preferred when valid; MAXIM is used as fallback.
 
 **Behavior:**
 - Initializes MAX30102 over I2C with interrupt-driven sampling on GPIO7
@@ -85,7 +85,7 @@ The firmware runs two algorithms on every update cycle — the RF autocorrelatio
 - Resets all state cleanly on finger removal
 - Fills a 100-sample ring buffer before running algorithms
 - Waits 5 seconds after buffer fills for signal stabilization
-- Outputs one reading every 5 seconds — held at last known good value between updates
+- Outputs one reading every 5 seconds, held at last known good value between updates
 - Session ID auto-generated from boot timestamp
 - Sends JSON payload to backend on each valid output cycle
 - Continues operating locally if Wi-Fi is unavailable

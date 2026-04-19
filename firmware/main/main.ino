@@ -51,8 +51,10 @@ bool fingerPresent = false;
 int32_t last_good_hr   = INVALID_HR;
 float   last_good_spo2 = INVALID_SPO2;
 
-// ── Session ID — generated once at boot from millis ──────────────────────────
+// ── Session ID — regenerates after 60s of no finger ─────────────────────────
 String sessionId = "";
+unsigned long fingerRemovedAt = 0;  // timestamp of last finger removal
+const unsigned long SESSION_RESET_MS = 60000UL;  // 60 seconds
 
 // ── WiFi state ────────────────────────────────────────────────────────────────
 bool wifiConnected = false;
@@ -98,6 +100,7 @@ static void resetAcquisition() {
   last_good_spo2     = INVALID_SPO2;
   hr_filter.push(INVALID_HR);
   spo2_filter.push(INVALID_SPO2);
+  fingerRemovedAt    = millis();  // start the 60s session reset clock
   Serial.println("Finger removed. Waiting...");
 }
 
@@ -115,8 +118,9 @@ void setup() {
   }
   Serial.println("Sensor ready.");
 
-  // Generate session ID from boot timestamp
+  // Generate initial session ID from boot timestamp
   sessionId = "session_" + String(millis());
+  fingerRemovedAt = millis();  // initialise so first placement doesn't regenerate immediately
 
   wifiConnected = connectToWiFi();
   if (!wifiConnected) {
@@ -149,6 +153,12 @@ void loop() {
   if (!fingerPresent) {
     if (peek_ir >= FINGER_ON_THRESHOLD) {
       fingerPresent = true;
+      // If finger was off for more than 60s, start a new session
+      if (fingerRemovedAt > 0 && (millis() - fingerRemovedAt) >= SESSION_RESET_MS) {
+        sessionId = "session_" + String(millis());
+        Serial.print("New session: ");
+        Serial.println(sessionId);
+      }
       Serial.println("Finger detected. Buffering...");
     } else {
       delay(10);
