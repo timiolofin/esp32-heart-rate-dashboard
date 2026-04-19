@@ -88,7 +88,7 @@ def root():
 
 @app.get("/dashboard")
 def serve_dashboard():
-    return FileResponse("dashboard.html")
+    return FileResponse(os.path.join(os.path.dirname(__file__), "dashboard.html"))
 
 
 @app.get("/api/latest")
