@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import sqlite3
 
 app = FastAPI()
@@ -16,6 +17,7 @@ app.add_middleware(
 )
 API_TOKEN = "test123"
 DB_FILE = "readings.db"
+EST = ZoneInfo("America/New_York")
 
 
 class SensorData(BaseModel):
@@ -93,7 +95,7 @@ def receive_data(payload: SensorData, authorization: str = Header(default="")):
     if authorization != f"Bearer {API_TOKEN}":
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    timestamp = datetime.now().isoformat()
+    timestamp = datetime.now(EST).strftime("%Y-%m-%dT%H:%M:%S")
 
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
