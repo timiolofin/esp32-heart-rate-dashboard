@@ -289,7 +289,7 @@ body{
       <div class="sec-head">
         <div>
           <div class="sec-title">Vital Signs Trend</div>
-          <div class="sec-sub">Last 30 readings · auto-refreshes</div>
+          <div class="sec-sub">Last 10 readings · auto-refreshes</div>
         </div>
         <div style="display:flex;gap:14px;align-items:center">
           <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted2)">
@@ -333,6 +333,7 @@ body{
 
 <script>
 const BASE = 'https://esp32-heart-rate-dashboard.onrender.com';
+const HEADERS = { 'Authorization': 'Bearer test123' };
 let mainChart, hrChart;
 
 function getThemeColors() {
@@ -462,7 +463,7 @@ function barColor(bpm) {
 
 async function fetchLatest() {
   try {
-    const d=await(await fetch(`${BASE}/latest`)).json();
+    const d=await(await fetch(`${BASE}/latest`, {headers: HEADERS})).json();
     if(d.message==='no data') return;
     document.getElementById('hr_val').innerHTML=(d.heart_rate??'--')+'<span class="m-unit">BPM</span>';
     setArc(d.spo2);
@@ -475,9 +476,9 @@ async function fetchLatest() {
 
 async function fetchHistory() {
   try {
-    const d=await(await fetch(`${BASE}/history`)).json();
+    const d=await(await fetch(`${BASE}/history`, {headers: HEADERS})).json();
     if(!d.readings?.length) return;
-    const readings=[...d.readings].reverse().slice(-30);
+    const readings=[...d.readings].reverse().slice(-10);
     const labels=readings.map(r=>new Date(r.timestamp).toLocaleTimeString());
     const hrVals=readings.map(r=>r.heart_rate);
     const spo2Vals=readings.map(r=>r.spo2);

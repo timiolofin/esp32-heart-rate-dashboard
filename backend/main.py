@@ -6,6 +6,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import sqlite3
 import logging
+import os
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,7 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-API_TOKEN = "test123"
+API_TOKEN = os.getenv("API_TOKEN", "test123")
 DB_FILE = "readings.db"
 EST = ZoneInfo("America/New_York")
 
@@ -73,13 +74,19 @@ def startup():
     init_db()
 
 
+def check_auth(authorization: str):
+    if authorization != f"Bearer {API_TOKEN}":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 @app.get("/")
 def root():
     return {"status": "ok"}
 
 
 @app.get("/latest")
-def get_latest():
+def get_latest(authorization: str = Header(default="")):
+    check_auth(authorization)
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
@@ -94,7 +101,9 @@ def get_latest():
 
 
 @app.get("/history")
-def get_history(limit: int = 50):
+def get_history(limit: int = 50, authorization: str = Header(default="")):
+    check_auth(authorization)
+    limit = min(max(limit, 1), 200)
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
