@@ -1,188 +1,322 @@
 #include <Arduino.h>
-#include <math.h>
+#include "algorithm_by_RF.h"
+#include "algorithm.h"
 #include "max30102.h"
+#include "median_filter.h"
 #include "wifi_helper.h"
 #include "http_helper.h"
 
-static const char* DEVICE_ID  = "esp32_001";
-static const char* SESSION_ID = "session_001";
+// ── Device identity ───────────────────────────────────────────────────────────
+static const char* DEVICE_ID = "esp32_001";
 
-static const int SDA_PIN = 5;
-static const int SCL_PIN = 6;
+// ── Hardware ──────────────────────────────────────────────────────────────────
+const byte oxiInt             = 7;
+const int  SENSOR_I2C_SDA_PIN = 5;
+const int  SENSOR_I2C_SCL_PIN = 6;
 
+// ── Finger detection thresholds ──────────────────────────────────────────────
 static const uint32_t FINGER_ON_THRESHOLD  = 20000;
 static const uint32_t FINGER_OFF_THRESHOLD = 10000;
 
-static const unsigned long FINGER_ON_DEBOUNCE_MS  = 200;
-static const unsigned long FINGER_OFF_DEBOUNCE_MS = 300;
-static const unsigned long FINGER_SETTLE_MS        = 1200;
-static const unsigned long STATUS_PRINT_MS         = 1000;
-static const unsigned long SEND_INTERVAL_MS        = 2000;
+// ── Buffers ───────────────────────────────────────────────────────────────────
+uint32_t aun_ir_buffer[BUFFER_SIZE];
+uint32_t aun_red_buffer[BUFFER_SIZE];
+uint32_t ordered_ir_buffer[BUFFER_SIZE];
+uint32_t ordered_red_buffer[BUFFER_SIZE];
 
+// ── Update cadence & smoothing ────────────────────────────────────────────────
+const int32_t UPDATE_STEP    = 10;
+const uint8_t MEDIAN_HISTORY = 4;
+
+const int32_t INVALID_HR   = -999;
+const float   INVALID_SPO2 = -999.0f;
+
+uint16_t sample_write_index = 0;
+uint16_t sample_count       = 0;
+
+MedianFilter<int32_t, MEDIAN_HISTORY> hr_filter(INVALID_HR);
+MedianFilter<float,   MEDIAN_HISTORY> spo2_filter(INVALID_SPO2);
+
+// ── Timing & output state ─────────────────────────────────────────────────────
+uint32_t timeStart                      = 0;
+const unsigned long READING_INTERVAL_MS = 5000UL;
+unsigned long fingerPlacedAt            = 0;
+unsigned long lastOutputAt              = 0;
+bool firstReadingDone                   = false;
+
+// ── Finger state ──────────────────────────────────────────────────────────────
 bool fingerPresent = false;
+
+// ── Last known good & displayed values ───────────────────────────────────────
+int32_t last_good_hr   = INVALID_HR;
+float   last_good_spo2 = INVALID_SPO2;
+
+// ── Session ID — generated once at boot from millis ──────────────────────────
+String sessionId = "";
+
+// ── WiFi state ────────────────────────────────────────────────────────────────
 bool wifiConnected = false;
 
-unsigned long fingerDetectedAt = 0;
-unsigned long lastStatusPrint  = 0;
-unsigned long lastSendAt       = 0;
-
-unsigned long fingerOnCandidateAt  = 0;
-unsigned long fingerOffCandidateAt = 0;
-bool fingerOnCandidate  = false;
-bool fingerOffCandidate = false;
-
-uint32_t lastIrValue  = 0;
-uint32_t lastRedValue = 0;
-
-void resetFingerDebounce() {
-  fingerOnCandidate    = false;
-  fingerOffCandidate   = false;
-  fingerOnCandidateAt  = 0;
-  fingerOffCandidateAt = 0;
+// ── Helpers ───────────────────────────────────────────────────────────────────
+static void waitForDataReady(uint32_t timeout_us) {
+  uint32_t t = micros();
+  while (digitalRead(oxiInt) == HIGH) {
+    if ((micros() - t) > timeout_us) {
+      break;
+    }
+    delayMicroseconds(50);
+  }
 }
 
-void printWaiting(uint32_t irValue) {
-  Serial.print("Waiting for finger | IR: ");
-  Serial.println(irValue);
+static void readNextSampleIntoRing(uint32_t timeout_us) {
+  waitForDataReady(timeout_us);
+  maxim_max30102_read_fifo(
+    &aun_red_buffer[sample_write_index],
+    &aun_ir_buffer[sample_write_index]
+  );
+  sample_write_index = (sample_write_index + 1) % BUFFER_SIZE;
+  if (sample_count < BUFFER_SIZE) ++sample_count;
 }
 
-void printSettling(uint32_t irValue, unsigned long elapsed) {
-  Serial.print("Finger detected, settling | IR: ");
-  Serial.print(irValue);
-  Serial.print(" | ms: ");
-  Serial.println(elapsed);
+static void buildOrderedWindow() {
+  uint16_t start = sample_write_index;
+  for (uint16_t i = 0; i < BUFFER_SIZE; ++i) {
+    uint16_t src = (start + i) % BUFFER_SIZE;
+    ordered_red_buffer[i] = aun_red_buffer[src];
+    ordered_ir_buffer[i]  = aun_ir_buffer[src];
+  }
 }
 
-void generateVitals(unsigned long now, int &heartRate, float &spo2) {
-  float t = now / 1000.0f;
-
-  float hrWave1 = 4.0f * sinf(2.0f * PI * t / 27.0f);
-  float hrWave2 = 2.0f * sinf(2.0f * PI * t / 11.1f);
-  float spo2Wave = 0.6f * sinf(2.0f * PI * t / 33.0f);
-
-  heartRate = (int)roundf(74.0f + hrWave1 + hrWave2);
-  if (heartRate < 66) heartRate = 66;
-  if (heartRate > 84) heartRate = 84;
-
-  spo2 = 98.0f + spo2Wave;
-  if (spo2 < 97.0f) spo2 = 97.0f;
-  if (spo2 > 99.0f) spo2 = 99.0f;
+// Reset everything when finger is removed
+static void resetAcquisition() {
+  sample_write_index = 0;
+  sample_count       = 0;
+  fingerPlacedAt     = 0;
+  lastOutputAt       = 0;
+  firstReadingDone   = false;
+  last_good_hr       = INVALID_HR;
+  last_good_spo2     = INVALID_SPO2;
+  hr_filter.push(INVALID_HR);
+  spo2_filter.push(INVALID_SPO2);
+  Serial.println("Finger removed. Waiting...");
 }
 
+// ── Setup ─────────────────────────────────────────────────────────────────────
 void setup() {
+  pinMode(oxiInt, INPUT);
   Serial.begin(115200);
   delay(1000);
 
-  Serial.println();
-  Serial.println("Starting Sensor-to-Web..");
+  Serial.println("\n--- VitalSense ESP32-S3 ---");
 
-  if (!maxim_max30102_init(SDA_PIN, SCL_PIN)) {
-    Serial.println("ERROR: MAX30102 init failed.");
+  if (!maxim_max30102_init(SENSOR_I2C_SDA_PIN, SENSOR_I2C_SCL_PIN)) {
+    Serial.println("ERROR: MAX30102 init failed. Halting.");
     while (true) delay(1000);
   }
+  Serial.println("Sensor ready.");
 
-  Serial.println("MAX30102 initialized.");
+  // Generate session ID from boot timestamp
+  sessionId = "session_" + String(millis());
 
   wifiConnected = connectToWiFi();
   if (!wifiConnected) {
-    Serial.println("Continuing without Wi-Fi.");
+    Serial.println("No WiFi — readings will print locally only.");
   }
 
-  Serial.println("Place finger on sensor...");
+  timeStart = millis();
+  Serial.println("Place finger on sensor...\n");
+  Serial.println("Time(s)\tHR\tSpO2");
 }
 
+// ── Loop ──────────────────────────────────────────────────────────────────────
 void loop() {
-  uint32_t redValue = 0;
-  uint32_t irValue  = 0;
-  unsigned long now = millis();
+  const uint32_t timeout_us = (2000000UL / FS);
 
-  if (!maxim_max30102_read_fifo(&redValue, &irValue)) {
-    Serial.println("FIFO read failed.");
-    delay(10);
+  // ── Read one sample to check IR for finger detection ─────────────────────
+  // We peek at the IR value before adding to the ring to handle finger removal
+  uint32_t peek_red = 0, peek_ir = 0;
+  waitForDataReady(timeout_us);
+  maxim_max30102_read_fifo(&peek_red, &peek_ir);
+
+  // ── Finger removal detection ──────────────────────────────────────────────
+  if (fingerPresent && peek_ir < FINGER_OFF_THRESHOLD) {
+    fingerPresent = false;
+    resetAcquisition();
     return;
   }
 
-  lastIrValue  = irValue;
-  lastRedValue = redValue;
-
+  // ── Finger detection ──────────────────────────────────────────────────────
   if (!fingerPresent) {
-    if (irValue >= FINGER_ON_THRESHOLD) {
-      if (!fingerOnCandidate) {
-        fingerOnCandidate    = true;
-        fingerOnCandidateAt  = now;
-      } else if (now - fingerOnCandidateAt >= FINGER_ON_DEBOUNCE_MS) {
-        fingerPresent      = true;
-        fingerDetectedAt   = now;
-        lastSendAt         = 0;
-        fingerOnCandidate  = false;
-        Serial.println("Finger detected. Starting acquisition...");
-      }
+    if (peek_ir >= FINGER_ON_THRESHOLD) {
+      fingerPresent = true;
+      Serial.println("Finger detected. Buffering...");
     } else {
-      fingerOnCandidate = false;
-      if (now - lastStatusPrint >= STATUS_PRINT_MS) {
-        lastStatusPrint = now;
-        printWaiting(irValue);
-      }
       delay(10);
       return;
     }
   }
 
-  if (fingerPresent) {
-    if (irValue < FINGER_OFF_THRESHOLD) {
-      if (!fingerOffCandidate) {
-        fingerOffCandidate    = true;
-        fingerOffCandidateAt  = now;
-      } else if (now - fingerOffCandidateAt >= FINGER_OFF_DEBOUNCE_MS) {
-        Serial.println("Finger removed. Pausing transmission.");
-        fingerPresent = false;
-        resetFingerDebounce();
-        delay(10);
-        return;
-      }
-    } else {
-      fingerOffCandidate = false;
-    }
+  // Finger is present — write the peeked sample into the ring manually
+  aun_red_buffer[sample_write_index] = peek_red;
+  aun_ir_buffer[sample_write_index]  = peek_ir;
+  sample_write_index = (sample_write_index + 1) % BUFFER_SIZE;
+  if (sample_count < BUFFER_SIZE) ++sample_count;
+
+  // Collect remaining UPDATE_STEP - 1 samples
+  for (int32_t n = 1; n < UPDATE_STEP; ++n) {
+    readNextSampleIntoRing(timeout_us);
   }
 
-  unsigned long settleElapsed = now - fingerDetectedAt;
-  if (settleElapsed < FINGER_SETTLE_MS) {
-    if (now - lastStatusPrint >= STATUS_PRINT_MS) {
-      lastStatusPrint = now;
-      printSettling(irValue, settleElapsed);
-    }
-    delay(10);
+  // Wait for full buffer
+  if (sample_count < BUFFER_SIZE) {
+    Serial.print("Buffering... ");
+    Serial.print(sample_count);
+    Serial.print("/");
+    Serial.println(BUFFER_SIZE);
     return;
   }
 
-  int   heartRate = 0;
-  float spo2      = 0.0f;
-  generateVitals(now, heartRate, spo2);
+  // Mark finger placement time once buffer is full
+  if (fingerPlacedAt == 0) fingerPlacedAt = millis();
 
-  if (now - lastStatusPrint >= STATUS_PRINT_MS) {
-    lastStatusPrint = now;
-    Serial.print("IR: ");   Serial.print(lastIrValue);
-    Serial.print(" | RED: "); Serial.print(lastRedValue);
-    Serial.print(" | HR: ");  Serial.print(heartRate);
-    Serial.print(" | SpO2: "); Serial.print(spo2, 1);
-    Serial.println(" | ");
+  buildOrderedWindow();
+
+  // ── RF algorithm ─────────────────────────────────────────────────────────
+  float   n_spo2_rf;
+  int8_t  ch_spo2_valid_rf;
+  int32_t n_heart_rate_rf;
+  int8_t  ch_hr_valid_rf;
+  float   ratio, correl;
+
+  rf_heart_rate_and_oxygen_saturation(
+    ordered_ir_buffer, BUFFER_SIZE, ordered_red_buffer,
+    &n_spo2_rf, &ch_spo2_valid_rf,
+    &n_heart_rate_rf, &ch_hr_valid_rf,
+    &ratio, &correl
+  );
+
+  // ── MAXIM algorithm ───────────────────────────────────────────────────────
+  float   n_spo2_mx;
+  int8_t  ch_spo2_valid_mx;
+  int32_t n_heart_rate_mx;
+  int8_t  ch_hr_valid_mx;
+
+  maxim_heart_rate_and_oxygen_saturation(
+    ordered_ir_buffer, BUFFER_SIZE, ordered_red_buffer,
+    &n_spo2_mx, &ch_spo2_valid_mx,
+    &n_heart_rate_mx, &ch_hr_valid_mx
+  );
+
+  // ── Physiological validity gates ─────────────────────────────────────────
+  bool rf_hr_ok   = ch_hr_valid_rf   && n_heart_rate_rf >= 75   && n_heart_rate_rf <= 105;
+  bool rf_spo2_ok = ch_spo2_valid_rf && n_spo2_rf       >= 95.0f && n_spo2_rf      <= 100.0f;
+  bool mx_hr_ok   = ch_hr_valid_mx   && n_heart_rate_mx >= 75   && n_heart_rate_mx <= 105;
+  bool mx_spo2_ok = ch_spo2_valid_mx && n_spo2_mx       >= 95.0f && n_spo2_mx      <= 100.0f;
+
+  // ── Feed median filters — prefer RF, fall back to MAXIM ──────────────────
+  int32_t hr_to_push   = rf_hr_ok   ? n_heart_rate_rf
+                       : mx_hr_ok   ? n_heart_rate_mx
+                       : INVALID_HR;
+  float spo2_to_push   = rf_spo2_ok ? n_spo2_rf
+                       : mx_spo2_ok ? n_spo2_mx
+                       : INVALID_SPO2;
+
+  hr_filter.push(hr_to_push);
+  spo2_filter.push(spo2_to_push);
+
+  // ── Debounced last-known-good update ─────────────────────────────────────
+  int32_t median_hr;
+  float   median_spo2;
+
+  if (hr_filter.median(&median_hr)) {
+    if (last_good_hr == INVALID_HR) {
+      last_good_hr = median_hr;
+    } else {
+      int32_t diff = median_hr - last_good_hr;
+      if (abs(diff) > 3) last_good_hr += (diff > 0) ? 3 : -3;
+      else               last_good_hr  = median_hr;
+    }
   }
 
-  if (now - lastSendAt >= SEND_INTERVAL_MS) {
-    lastSendAt = now;
+  if (spo2_filter.median(&median_spo2)) {
+    if (last_good_spo2 == INVALID_SPO2) {
+      last_good_spo2 = median_spo2;
+    } else {
+      float diff = median_spo2 - last_good_spo2;
+      if (fabsf(diff) > 3.0f) last_good_spo2 += (diff > 0) ? 3.0f : -3.0f;
+      else                    last_good_spo2  = median_spo2;
+    }
+  }
+
+  // ── Output gate — 5s stabilize, then every 5s ─────────────────────────────
+  unsigned long now         = millis();
+  unsigned long sincePlaced = now - fingerPlacedAt;
+  unsigned long sinceOutput = now - lastOutputAt;
+
+  bool readyToOutput = (sincePlaced >= READING_INTERVAL_MS) &&
+                       (!firstReadingDone || sinceOutput >= READING_INTERVAL_MS);
+
+  if (!readyToOutput) {
+    if (sincePlaced < READING_INTERVAL_MS) {
+      Serial.print("Stabilizing... ");
+      Serial.print((READING_INTERVAL_MS - sincePlaced) / 1000);
+      Serial.println("s");
+    }
+    return;
+  }
+
+  lastOutputAt     = now;
+  firstReadingDone = true;
+
+  // ── Output-level debounce ─────────────────────────────────────────────────
+  static int32_t displayed_hr   = INVALID_HR;
+  static float   displayed_spo2 = INVALID_SPO2;
+
+  if (last_good_hr != INVALID_HR) {
+    if (displayed_hr == INVALID_HR) {
+      displayed_hr = last_good_hr;
+    } else {
+      int32_t diff = last_good_hr - displayed_hr;
+      if (abs(diff) > 3) displayed_hr += (diff > 0) ? 3 : -3;
+      else               displayed_hr  = last_good_hr;
+    }
+  }
+
+  if (last_good_spo2 != INVALID_SPO2) {
+    if (displayed_spo2 == INVALID_SPO2) {
+      displayed_spo2 = last_good_spo2;
+    } else {
+      float diff = last_good_spo2 - displayed_spo2;
+      if (fabsf(diff) > 3.0f) displayed_spo2 += (diff > 0) ? 3.0f : -3.0f;
+      else                    displayed_spo2  = last_good_spo2;
+    }
+  }
+
+  // ── Serial print ─────────────────────────────────────────────────────────
+  uint32_t elapsed_s = (millis() - timeStart) / 1000;
+  Serial.print(elapsed_s); Serial.print("\t");
+  if (displayed_hr   != INVALID_HR)   Serial.print(displayed_hr);
+  else                                Serial.print("--");
+  Serial.print("\t");
+  if (displayed_spo2 != INVALID_SPO2) Serial.print(displayed_spo2, 1);
+  else                                Serial.print("--");
+  Serial.println();
+
+  // ── HTTP POST — only send if we have valid values ─────────────────────────
+  if (wifiConnected && displayed_hr != INVALID_HR && displayed_spo2 != INVALID_SPO2) {
     sendVitalData(
-      DEVICE_ID,
-      SESSION_ID,
-      heartRate,
+      String(DEVICE_ID),
+      sessionId,
+      displayed_hr,
       true,
-      spo2,
+      displayed_spo2,
       true,
-      lastIrValue,
-      lastRedValue,
-      0.98f,
-      0.96f
+      ordered_ir_buffer[BUFFER_SIZE - 1],
+      ordered_red_buffer[BUFFER_SIZE - 1],
+      ratio,
+      correl
     );
+  } else if (wifiConnected) {
+    Serial.println("Skipping POST — no valid reading yet.");
   }
-
-  delay(10);
 }

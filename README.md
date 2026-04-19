@@ -14,7 +14,7 @@ The system is structured as a complete end-to-end IoT pipeline: embedded firmwar
 
 ## Use Case
 
-A user places their finger on the MAX30102 sensor for a short session. The ESP32-S3 detects finger presence, processes the optical signal, and sends BPM and SpO2 readings to the backend every ~2 seconds. The dashboard updates automatically in real time.
+A user places their finger on the MAX30102 sensor. The ESP32-S3 detects finger presence, waits 5 seconds for the signal to stabilize, then processes the optical signal and sends BPM and SpO2 readings to the backend every 5 seconds. The dashboard updates automatically in real time. When the finger is removed, the device resets and waits for the next placement.
 
 The system supports multiple devices via `device_id` and multiple sessions via `session_id`, making it extensible to a multi-patient monitoring environment.
 
@@ -24,14 +24,14 @@ The system supports multiple devices via `device_id` and multiple sessions via `
 
 ```
 MAX30102 Sensor
-    ↓ I2C (SDA=GPIO5, SCL=GPIO6)
+    ↓ I2C (SDA=GPIO5, SCL=GPIO6, INT=GPIO7)
 ESP32-S3 Firmware (Arduino/C++)
-    ↓ HTTPS POST — Bearer token — every ~2s
+    ↓ HTTPS POST — Bearer token — every 5s
 FastAPI Backend (Python) — deployed on Render
     ↓ writes
 SQLite Database — readings.db
     ↓ queries (GET /latest, GET /history)
-Dashboard (HTML/JS) — static file, opened in browser
+Dashboard (HTML/JS) — static file, hosted on GitHub Pages
 ```
 
 ---
@@ -42,8 +42,18 @@ Dashboard (HTML/JS) — static file, opened in browser
 |---|---|
 | ESP32-S3 | Wi-Fi microcontroller — runs firmware, transmits data |
 | MAX30102 | Optical pulse sensor — red/IR PPG channels |
-| Jumper wires | I2C and power connections |
+| Jumper wires | I2C, interrupt, and power connections |
 | USB cable | Power and programming |
+
+### Wiring
+
+| ESP32-S3 | MAX30102 |
+|---|---|
+| 3.3V | VIN |
+| GND | GND |
+| GPIO5 | SDA |
+| GPIO6 | SCL |
+| GPIO7 | INT |
 
 ---
 
@@ -59,18 +69,26 @@ Dashboard (HTML/JS) — static file, opened in browser
 | `main.ino` | Main loop — finger detection, signal processing, transmission |
 | `max30102.cpp/h` | Custom MAX30102 I2C driver |
 | `algorithm_by_RF.cpp/h` | RF-style buffered HR/SpO2 estimation algorithm |
+| `algorithm.cpp/h` | MAXIM reference HR/SpO2 algorithm (fallback) |
+| `median_filter.h` | Fixed-size median filter template for output smoothing |
 | `http_helper.h` | HTTP POST to backend with Bearer token |
 | `wifi_helper.h` | Multi-network Wi-Fi connection logic |
 | `secrets.h` | Wi-Fi credentials — excluded from version control |
 
+**Signal Processing Pipeline:**
+
+The firmware runs two algorithms on every update cycle — the RF autocorrelation-based algorithm and the MAXIM peak-detection algorithm. Readings are filtered through a 4-sample median filter, validated against physiological ranges (HR: 75–105 BPM, SpO2: 95–100%), and smoothed with a two-layer debounce that limits output changes to 3 units per cycle. The RF algorithm is preferred when valid; MAXIM is used as fallback.
+
 **Behavior:**
-- Initializes MAX30102 over I2C
-- Detects finger presence using IR threshold (>20000 = finger on)
-- Debounces finger on/off events
-- Settles for 1.2 seconds after finger placement
-- Generates HR and SpO2 estimates via RF algorithm
-- Sends JSON payload to backend every 2 seconds
-- Stops transmitting on finger removal — last valid reading holds on dashboard
+- Initializes MAX30102 over I2C with interrupt-driven sampling on GPIO7
+- Detects finger presence using IR threshold (>20000 = finger on, <10000 = finger off)
+- Resets all state cleanly on finger removal
+- Fills a 100-sample ring buffer before running algorithms
+- Waits 5 seconds after buffer fills for signal stabilization
+- Outputs one reading every 5 seconds — held at last known good value between updates
+- Session ID auto-generated from boot timestamp
+- Sends JSON payload to backend on each valid output cycle
+- Continues operating locally if Wi-Fi is unavailable
 
 ---
 
@@ -158,7 +176,8 @@ Expected: **15 passed**
 |---|---|
 | Firmware | Arduino (C++) |
 | Sensor Driver | Custom MAX30102 I2C driver |
-| Signal Processing | RF-style buffered HR/SpO2 algorithm |
+| Signal Processing | RF autocorrelation + MAXIM peak-detection, dual-algorithm with fallback |
+| Output Smoothing | 4-sample median filter + two-layer debounce |
 | Backend | FastAPI (Python) |
 | Database | SQLite |
 | Frontend | HTML + JavaScript |
@@ -184,6 +203,9 @@ firmware/
         max30102.h
         algorithm_by_RF.cpp
         algorithm_by_RF.h
+        algorithm.cpp
+        algorithm.h
+        median_filter.h
         http_helper.h
         wifi_helper.h
         secrets.h
@@ -217,22 +239,26 @@ https://timiolofin.github.io/esp32-heart-rate-dashboard/backend/dashboard.html
 
 ### ESP32 Firmware
 - Open `firmware/main/` in Arduino IDE
+- Set board to **ESP32S3 Dev Module** with **USB CDC On Boot: Enabled**
 - Set Wi-Fi credentials in `secrets.h`
 - Flash to ESP32-S3
-- Device connects to Wi-Fi and begins sending data automatically
+- Open Serial Monitor at 115200 baud
+- Place finger on sensor — first reading appears after buffering + 5s stabilization
 
 ---
 
 ## Current Status
 
-- [x] ESP32-S3 communicates with MAX30102 over I2C
-- [x] RF-style buffered HR/SpO2 algorithm integrated
-- [x] Finger detection with debouncing
+- [x] ESP32-S3 communicates with MAX30102 over I2C with interrupt-driven sampling
+- [x] Dual-algorithm HR/SpO2 pipeline (RF + MAXIM) with median filter and debounce
+- [x] Physiological validity gates (75–105 BPM, 95–100% SpO2)
+- [x] Finger detection and removal with clean state reset
+- [x] 5-second stabilization window + 5-second output interval
 - [x] Wi-Fi multi-network connection
 - [x] HTTP POST with Bearer token auth
 - [x] FastAPI backend deployed on Render
 - [x] SQLite storage with EST timestamps
-- [x] Session ID tracking
+- [x] Session ID tracking — auto-generated at boot
 - [x] Live dashboard with trend charts
 - [x] Auth on all GET and POST endpoints
 - [x] 15 passing backend unit tests
@@ -248,8 +274,8 @@ https://timiolofin.github.io/esp32-heart-rate-dashboard/backend/dashboard.html
 | 10 | Hardware connected, local sensor readout |
 | 11 | Sensor-to-backend pipeline working |
 | 12 | Dashboard integrated with live data |
-| 13 | Firmware restructure, RF algorithm, session ID, auth hardening |
-| 14 | Testing, documentation, final presentation |
+| 13 | Firmware restructure, dual RF/MAXIM algorithm, session ID, auth hardening |
+| 14 | Signal processing refinement, output smoothing, testing, documentation |
 
 ---
 
@@ -257,7 +283,7 @@ https://timiolofin.github.io/esp32-heart-rate-dashboard/backend/dashboard.html
 
 - Replace SQLite with PostgreSQL for production scalability
 - WebSockets for true real-time push instead of polling
-- Auto-generated session ID on the ESP32 using boot timestamp
+- Hardware fix for MAX30102 clone board LED resistor issue for more consistent signal
 - User authentication on the dashboard
 - Anomaly alerts when BPM goes outside normal range
 - Full Docker + CI/CD deployment pipeline
