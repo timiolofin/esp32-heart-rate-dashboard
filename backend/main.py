@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
@@ -88,7 +87,9 @@ def root():
 
 @app.get("/dashboard")
 def serve_dashboard():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "dashboard.html"))
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard.html")
+    with open(path, "r") as f:
+        return HTMLResponse(content=f.read())
 
 
 @app.get("/api/latest")
