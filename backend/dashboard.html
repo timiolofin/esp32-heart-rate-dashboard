@@ -3,57 +3,82 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Heart Rate Dashboard</title>
+  <title>Vital Signs Dashboard</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       text-align: center;
-      margin-top: 50px;
+      margin-top: 40px;
       background: #f4f4f4;
     }
+
     .card {
       display: inline-block;
       background: white;
       padding: 30px;
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      min-width: 300px;
+      min-width: 340px;
     }
+
     .value {
       font-size: 2rem;
-      margin: 10px 0;
+      margin: 10px 0 20px 0;
     }
+
     .label {
       color: #666;
       font-size: 0.95rem;
+    }
+
+    .small {
+      font-size: 1rem;
+      margin-bottom: 16px;
     }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>Live Heart Rate</h1>
-    <div class="label">BPM</div>
-    <div class="value" id="bpm">--</div>
+    <h1>Live Vital Signs</h1>
 
-    <div class="label">Finger Detected</div>
-    <div class="value" id="finger">--</div>
+    <div class="label">Heart Rate (BPM)</div>
+    <div class="value" id="heart_rate">--</div>
 
-    <div class="label">Signal</div>
-    <div class="value" id="signal">--</div>
+    <div class="label">HR Valid</div>
+    <div class="value small" id="hr_valid">--</div>
+
+    <div class="label">SpO₂ (%)</div>
+    <div class="value" id="spo2">--</div>
+
+    <div class="label">SpO₂ Valid</div>
+    <div class="value small" id="spo2_valid">--</div>
+
+    <div class="label">IR</div>
+    <div class="value small" id="ir">--</div>
+
+    <div class="label">RED</div>
+    <div class="value small" id="red">--</div>
 
     <div class="label">Timestamp</div>
-    <div class="value" id="timestamp" style="font-size:1rem;">--</div>
+    <div class="value small" id="timestamp">--</div>
   </div>
 
   <script>
     async function fetchLatest() {
       try {
-        const response = await fetch('/latest');
+        const response = await fetch('http://127.0.0.1:8000/latest');
         const data = await response.json();
 
-        document.getElementById('bpm').textContent = data.bpm ?? '--';
-        document.getElementById('finger').textContent = data.finger_detected ? 'Yes' : 'No';
-        document.getElementById('signal').textContent = data.signal ?? '--';
+        if (data.message === 'no data') {
+          return;
+        }
+
+        document.getElementById('heart_rate').textContent = data.heart_rate ?? '--';
+        document.getElementById('hr_valid').textContent = data.hr_valid ? 'Yes' : 'No';
+        document.getElementById('spo2').textContent = data.spo2 ?? '--';
+        document.getElementById('spo2_valid').textContent = data.spo2_valid ? 'Yes' : 'No';
+        document.getElementById('ir').textContent = data.ir ?? '--';
+        document.getElementById('red').textContent = data.red ?? '--';
         document.getElementById('timestamp').textContent = data.timestamp ?? '--';
       } catch (error) {
         console.error('Failed to fetch latest reading:', error);
