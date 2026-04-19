@@ -102,16 +102,21 @@ Dashboard (HTML/JS) — static file, opened in browser
 ## Web Dashboard
 
 **File:** `backend/dashboard.html`  
-**Type:** Static HTML — open directly in browser  
+**Type:** Static HTML — hosted on GitHub Pages  
+**Live URL:** `https://timiolofin.github.io/esp32-heart-rate-dashboard/backend/dashboard.html`  
 **Polling:** Every 3 seconds via `fetch()` with Bearer token
 
 **Features:**
 - Live BPM display with animated ECG
-- SpO2 arc gauge
+- BPM color changes to amber if outside normal range (< 60 or > 100 BPM)
+- SpO2 arc gauge with color coding (blue = normal, amber = low, red = critical)
+- Finger detection status indicator — updates in real time
+- Last seen counter — shows seconds since last reading
 - Dual-axis trend chart (HR + SpO2)
 - Bar chart color-coded by BPM range
-- Session ID and timestamp display
-- Session averages and reading count
+- Session ID, device ID, and timestamp display
+- Session avg, min, and max HR + avg SpO2
+- Total readings captured
 - Light / dark mode toggle
 
 ---
@@ -205,7 +210,10 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 Live at: `https://esp32-heart-rate-dashboard.onrender.com`
 
 ### Frontend
-Open `backend/dashboard.html` directly in a browser. No server needed.
+Open `backend/dashboard.html` directly in a browser, or visit the hosted version:
+```
+https://timiolofin.github.io/esp32-heart-rate-dashboard/backend/dashboard.html
+```
 
 ### ESP32 Firmware
 - Open `firmware/main/` in Arduino IDE
