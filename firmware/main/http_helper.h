@@ -3,7 +3,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 
-static const char* API_URL   = "http://192.168.0.17:8000/data";
+static const char* API_URL = "https://esp32-heart-rate-dashboard.onrender.com/data";
 static const char* API_TOKEN = "test123";
 
 bool sendVitalData(

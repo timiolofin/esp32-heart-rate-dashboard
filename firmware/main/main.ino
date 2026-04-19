@@ -55,9 +55,9 @@ void printSettling(uint32_t irValue, unsigned long elapsed) {
 void generateVitals(unsigned long now, int &heartRate, float &spo2) {
   float t = now / 1000.0f;
 
-  float hrWave1 = 4.0f * sinf(2.0f * PI * t / 9.0f);
-  float hrWave2 = 2.0f * sinf(2.0f * PI * t / 3.7f);
-  float spo2Wave = 0.6f * sinf(2.0f * PI * t / 11.0f);
+  float hrWave1 = 4.0f * sinf(2.0f * PI * t / 27.0f);   
+  float hrWave2 = 2.0f * sinf(2.0f * PI * t / 11.1f);   
+  float spo2Wave = 0.6f * sinf(2.0f * PI * t / 33.0f);  
 
   heartRate = (int)roundf(74.0f + hrWave1 + hrWave2);
   if (heartRate < 66) heartRate = 66;
@@ -134,6 +134,21 @@ void loop() {
         fingerOffCandidateAt = now;
       } else if (now - fingerOffCandidateAt >= FINGER_OFF_DEBOUNCE_MS) {
         Serial.println("Finger removed. Resetting acquisition.");
+        
+        if (wifiConnected) {
+          sendVitalData(
+            DEVICE_ID,
+            0,
+            false,
+            0.0f,
+            false,
+            lastIrValue,
+            lastRedValue,
+            0.0f,
+            0.0f
+          );
+        }
+
         fingerPresent = false;
         resetFingerDebounce();
         delay(10);
