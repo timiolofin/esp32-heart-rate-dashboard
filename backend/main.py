@@ -1,6 +1,5 @@
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
@@ -85,14 +84,7 @@ def root():
     return {"status": "ok"}
 
 
-@app.get("/dashboard")
-def serve_dashboard():
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard.html")
-    with open(path, "r") as f:
-        return HTMLResponse(content=f.read())
-
-
-@app.get("/api/latest")
+@app.get("/latest")
 def get_latest(authorization: str = Header(default="")):
     check_auth(authorization)
     conn = sqlite3.connect(DB_FILE)
@@ -101,13 +93,15 @@ def get_latest(authorization: str = Header(default="")):
     cur.execute("SELECT * FROM readings ORDER BY id DESC LIMIT 1")
     row = cur.fetchone()
     conn.close()
+
     if row is None:
         return {"message": "no data"}
+
     return dict(row)
 
 
-@app.get("/api/history")
-def get_history_api(limit: int = 50, authorization: str = Header(default="")):
+@app.get("/history")
+def get_history(limit: int = 50, authorization: str = Header(default="")):
     check_auth(authorization)
     limit = min(max(limit, 1), 200)
     conn = sqlite3.connect(DB_FILE)

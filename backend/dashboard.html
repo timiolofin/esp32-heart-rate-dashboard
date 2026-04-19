@@ -74,6 +74,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .finger-dot{width:6px;height:6px;border-radius:50%}
 .sidebar-footer{margin-top:auto;padding-top:16px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);line-height:1.6;transition:border-color 0.3s}
 .leg-line{width:20px;height:2px;border-radius:2px}
+.stale-note{font-size:10px;color:var(--muted);margin-top:4px}
 </style>
 </head>
 <body>
@@ -210,9 +211,10 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 </div>
 
 <script>
-const BASE = '';
+const BASE = 'https://esp32-heart-rate-dashboard.onrender.com';
 const HEADERS = { 'Authorization': 'Bearer test123' };
 let mainChart, hrChart;
+let lastTimestamp = null;
 let lastSeenInterval = null;
 
 function getThemeColors() {
@@ -279,6 +281,7 @@ function startLastSeenCounter(tsString) {
     const el = document.getElementById('last_seen');
     if (secs < 60) el.textContent = secs + 's ago';
     else el.textContent = Math.floor(secs / 60) + 'm ago';
+    // finger detected if last reading was within 10 seconds
     setFingerStatus(secs < 10);
   }
   update();
@@ -288,11 +291,15 @@ function startLastSeenCounter(tsString) {
 function initCharts() {
   const c = getThemeColors();
   const sharedOpts = {
-    responsive:true,maintainAspectRatio:false,
+    responsive:true, maintainAspectRatio:false,
     animation:{duration:500},
     interaction:{mode:'index',intersect:false},
-    plugins:{legend:{display:false},tooltip:{backgroundColor:c.tooltipBg,borderColor:'rgba(128,128,128,0.2)',borderWidth:1,titleColor:c.tick,bodyColor:c.text,padding:12,cornerRadius:8}}
+    plugins:{
+      legend:{display:false},
+      tooltip:{backgroundColor:c.tooltipBg,borderColor:'rgba(128,128,128,0.2)',borderWidth:1,titleColor:c.tick,bodyColor:c.text,padding:12,cornerRadius:8}
+    }
   };
+
   const ctx1 = document.getElementById('mainChart').getContext('2d');
   mainChart = new Chart(ctx1, {
     type:'line',
@@ -306,6 +313,7 @@ function initCharts() {
       y1:{position:'right',grid:{drawOnChartArea:false},ticks:{color:'#38b6ff',_customColor:'#38b6ff',font:{size:10}},title:{display:true,text:'SpO₂ %',color:'#38b6ff',font:{size:10}},min:85,max:100}
     }}
   });
+
   const ctx2 = document.getElementById('hrDetailChart').getContext('2d');
   hrChart = new Chart(ctx2, {
     type:'bar',
@@ -335,13 +343,16 @@ function setArc(v) {
 
 async function fetchLatest() {
   try {
-    const d = await(await fetch(`${BASE}/api/latest`, {headers:HEADERS})).json();
+    const d = await(await fetch(`${BASE}/latest`, {headers:HEADERS})).json();
     if (d.message === 'no data') return;
+
     const hr = d.heart_rate ?? '--';
     const hrEl = document.getElementById('hr_val');
     hrEl.innerHTML = hr + '<span class="m-unit">BPM</span>';
     hrEl.style.color = hrColor(hr);
+
     setArc(d.spo2);
+
     if (d.session_id) document.getElementById('session_id').textContent = d.session_id;
     if (d.device_id) {
       document.getElementById('device_id').textContent = d.device_id;
@@ -356,20 +367,24 @@ async function fetchLatest() {
 
 async function fetchHistory() {
   try {
-    const d = await(await fetch(`${BASE}/api/history`, {headers:HEADERS})).json();
+    const d = await(await fetch(`${BASE}/history`, {headers:HEADERS})).json();
     if (!d.readings?.length) return;
+
     const readings = [...d.readings].reverse().slice(-10);
     const labels = readings.map(r => new Date(r.timestamp).toLocaleTimeString());
     const hrVals = readings.map(r => r.heart_rate);
     const spo2Vals = readings.map(r => r.spo2);
+
     mainChart.data.labels = labels;
     mainChart.data.datasets[0].data = hrVals;
     mainChart.data.datasets[1].data = spo2Vals;
     mainChart.update('none');
+
     hrChart.data.labels = labels;
     hrChart.data.datasets[0].data = hrVals;
     hrChart.data.datasets[0].backgroundColor = hrVals.map(barColor);
     hrChart.update('none');
+
     const vHR = hrVals.filter(v => v != null);
     const vSPO2 = spo2Vals.filter(v => v != null);
     if (vHR.length) {
