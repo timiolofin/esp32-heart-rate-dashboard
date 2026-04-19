@@ -7,225 +7,88 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-
 [data-theme="dark"]{
-  --bg:#07080d;
-  --s1:#0e1018;
-  --s2:#13161f;
-  --s3:#1a1e2a;
-  --border:rgba(255,255,255,0.06);
-  --border2:rgba(255,255,255,0.11);
-  --text:#e8ecf8;
-  --muted:#5a6280;
-  --muted2:#8892b0;
-  --grid:rgba(255,255,255,0.04);
-  --tick:#5a6280;
-  --tooltip-bg:#1a1e2a;
-  --toggle-bg:#1a1e2a;
-  --toggle-border:rgba(255,255,255,0.12);
-  --toggle-icon-color:#8892b0;
+  --bg:#07080d;--s1:#0e1018;--s2:#13161f;--s3:#1a1e2a;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.11);
+  --text:#e8ecf8;--muted:#5a6280;--muted2:#8892b0;
+  --grid:rgba(255,255,255,0.04);--tick:#5a6280;--tooltip-bg:#1a1e2a;
+  --toggle-bg:#1a1e2a;--toggle-border:rgba(255,255,255,0.12);--toggle-icon-color:#8892b0;
 }
 [data-theme="light"]{
-  --bg:#f0f2f8;
-  --s1:#ffffff;
-  --s2:#f7f8fc;
-  --s3:#eef0f7;
-  --border:rgba(0,0,0,0.07);
-  --border2:rgba(0,0,0,0.13);
-  --text:#111827;
-  --muted:#9098b0;
-  --muted2:#6b7494;
-  --grid:rgba(0,0,0,0.05);
-  --tick:#9098b0;
-  --tooltip-bg:#ffffff;
-  --toggle-bg:#eef0f7;
-  --toggle-border:rgba(0,0,0,0.1);
-  --toggle-icon-color:#6b7494;
+  --bg:#f0f2f8;--s1:#ffffff;--s2:#f7f8fc;--s3:#eef0f7;
+  --border:rgba(0,0,0,0.07);--border2:rgba(0,0,0,0.13);
+  --text:#111827;--muted:#9098b0;--muted2:#6b7494;
+  --grid:rgba(0,0,0,0.05);--tick:#9098b0;--tooltip-bg:#ffffff;
+  --toggle-bg:#eef0f7;--toggle-border:rgba(0,0,0,0.1);--toggle-icon-color:#6b7494;
 }
-
 :root{
-  --hr:#ff5c6a;
-  --hr2:rgba(255,92,106,0.15);
-  --spo2:#38b6ff;
-  --spo2b:rgba(56,182,255,0.15);
-  --green:#2dd4a0;
-  --greenb:rgba(45,212,160,0.12);
-  --amber:#f5a623;
+  --hr:#ff5c6a;--hr2:rgba(255,92,106,0.15);
+  --spo2:#38b6ff;--spo2b:rgba(56,182,255,0.15);
+  --green:#2dd4a0;--greenb:rgba(45,212,160,0.12);--amber:#f5a623;
 }
-
-body{
-  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
-  background:var(--bg);
-  color:var(--text);
-  min-height:100vh;
-  transition:background 0.3s,color 0.3s;
-}
-
-/* TOPBAR */
-.topbar{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:18px 28px;
-  border-bottom:1px solid var(--border);
-  background:var(--s1);
-  transition:background 0.3s,border-color 0.3s;
-}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background 0.3s,color 0.3s}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;border-bottom:1px solid var(--border);background:var(--s1);transition:background 0.3s,border-color 0.3s}
 .brand{display:flex;align-items:center;gap:12px}
-.brand-icon{
-  width:38px;height:38px;border-radius:10px;
-  background:var(--hr);
-  display:flex;align-items:center;justify-content:center;
-  font-size:17px;
-}
+.brand-icon{width:38px;height:38px;border-radius:10px;background:var(--hr);display:flex;align-items:center;justify-content:center;font-size:17px}
 .brand h1{font-size:16px;font-weight:600;letter-spacing:-0.2px;color:var(--text)}
 .brand span{font-size:11px;color:var(--muted2);display:block;margin-top:1px}
 .topbar-right{display:flex;align-items:center;gap:12px}
-.live-badge{
-  display:flex;align-items:center;gap:7px;
-  padding:6px 14px;border-radius:20px;
-  border:1px solid rgba(45,212,160,0.3);
-  background:var(--greenb);
-  font-size:11px;font-weight:600;color:var(--green);letter-spacing:0.5px;
-}
+.live-badge{display:flex;align-items:center;gap:7px;padding:6px 14px;border-radius:20px;border:1px solid rgba(45,212,160,0.3);background:var(--greenb);font-size:11px;font-weight:600;color:var(--green);letter-spacing:0.5px}
 .pulse-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:blink 1.6s ease-in-out infinite}
 @keyframes blink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.35;transform:scale(0.85)}}
-.device-chip{
-  padding:5px 12px;border-radius:20px;
-  background:var(--s3);border:1px solid var(--border2);
-  font-size:11px;color:var(--muted2);
-  transition:background 0.3s,border-color 0.3s;
-}
-
-/* THEME TOGGLE */
-.theme-toggle{
-  display:flex;align-items:center;
-  background:var(--toggle-bg);
-  border:1px solid var(--toggle-border);
-  border-radius:20px;
-  padding:4px;
-  gap:2px;
-  cursor:pointer;
-  transition:background 0.3s,border-color 0.3s;
-}
-.toggle-btn{
-  width:30px;height:26px;border-radius:16px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:13px;
-  border:none;background:transparent;cursor:pointer;
-  color:var(--toggle-icon-color);
-  transition:background 0.2s,color 0.2s;
-}
-.toggle-btn.active{
-  background:var(--s1);
-  color:var(--text);
-  box-shadow:0 1px 4px rgba(0,0,0,0.15);
-}
-
-/* LAYOUT */
+.device-chip{padding:5px 12px;border-radius:20px;background:var(--s3);border:1px solid var(--border2);font-size:11px;color:var(--muted2);transition:background 0.3s,border-color 0.3s}
+.theme-toggle{display:flex;align-items:center;background:var(--toggle-bg);border:1px solid var(--toggle-border);border-radius:20px;padding:4px;gap:2px;cursor:pointer;transition:background 0.3s,border-color 0.3s}
+.toggle-btn{width:30px;height:26px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:13px;border:none;background:transparent;cursor:pointer;color:var(--toggle-icon-color);transition:background 0.2s,color 0.2s}
+.toggle-btn.active{background:var(--s1);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.15)}
 .main{display:grid;grid-template-columns:280px 1fr;min-height:calc(100vh - 63px)}
-.sidebar{
-  background:var(--s1);
-  border-right:1px solid var(--border);
-  padding:24px 20px;
-  display:flex;flex-direction:column;gap:16px;
-  transition:background 0.3s,border-color 0.3s;
-}
+.sidebar{background:var(--s1);border-right:1px solid var(--border);padding:24px 20px;display:flex;flex-direction:column;gap:16px;transition:background 0.3s,border-color 0.3s}
 .content{padding:24px 24px 32px;display:flex;flex-direction:column;gap:18px}
-
-/* METRIC CARD */
-.m-card{
-  background:var(--s2);
-  border:1px solid var(--border);
-  border-radius:16px;
-  padding:20px;
-  position:relative;overflow:hidden;
-  transition:background 0.3s,border-color 0.3s;
-}
+.m-card{background:var(--s2);border:1px solid var(--border);border-radius:16px;padding:20px;position:relative;overflow:hidden;transition:background 0.3s,border-color 0.3s}
 .m-card-accent{position:absolute;top:0;left:0;right:0;height:2px;border-radius:16px 16px 0 0}
 .m-card .tag{font-size:10px;font-weight:600;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
-.m-val{font-size:46px;font-weight:700;line-height:1;letter-spacing:-2px;margin-bottom:6px}
+.m-val{font-size:46px;font-weight:700;line-height:1;letter-spacing:-2px;margin-bottom:6px;transition:color 0.4s}
 .m-unit{font-size:14px;font-weight:400;color:var(--muted2);letter-spacing:0;margin-left:2px}
 .m-sub{font-size:11px;color:var(--muted);margin-top:8px}
-.badge{
-  display:inline-flex;align-items:center;gap:5px;
-  padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;margin-top:8px;
-}
-.badge.ok{background:var(--greenb);color:var(--green)}
-.badge.warn{background:rgba(245,166,35,0.15);color:var(--amber)}
-.badge.err{background:var(--hr2);color:var(--hr)}
-
-/* ECG */
 .ecg-container{overflow:hidden;height:52px;margin-top:10px;position:relative}
 .ecg-track{display:flex;align-items:center;height:52px;white-space:nowrap}
-.ecg-svg{display:inline-block;animation:ecgScroll 2.4s linear infinite}
 @keyframes ecgScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-
-/* ARC */
 .arc-wrap{display:flex;align-items:center;justify-content:center;margin:10px 0}
 .arc-wrap svg{overflow:visible}
-
-/* SECTION CARD */
-.sec-card{
-  background:var(--s2);
-  border:1px solid var(--border);
-  border-radius:16px;
-  padding:22px 24px;
-  transition:background 0.3s,border-color 0.3s;
-}
+.sec-card{background:var(--s2);border:1px solid var(--border);border-radius:16px;padding:22px 24px;transition:background 0.3s,border-color 0.3s}
 .sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
 .sec-title{font-size:13px;font-weight:600;color:var(--text)}
 .sec-sub{font-size:11px;color:var(--muted);margin-top:2px}
 .chart-wrap{height:220px;position:relative}
 .chart-wrap canvas{width:100%!important;height:220px!important}
-
-/* STAT ROW */
-.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.stat-box{
-  background:var(--s3);border-radius:12px;
-  padding:14px 16px;border:1px solid var(--border);
-  transition:background 0.3s,border-color 0.3s;
-}
+.stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.stat-box{background:var(--s3);border-radius:12px;padding:14px 16px;border:1px solid var(--border);transition:background 0.3s,border-color 0.3s}
 .stat-box .s-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px}
-.stat-box .s-val{font-size:22px;font-weight:700;letter-spacing:-0.5px}
-
-/* READING ROW */
+.stat-box .s-val{font-size:20px;font-weight:700;letter-spacing:-0.5px}
 .reading-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.reading-cell{
-  background:var(--s3);border-radius:10px;padding:12px 14px;
-  border:1px solid var(--border);
-  transition:background 0.3s,border-color 0.3s;
-}
+.reading-cell{background:var(--s3);border-radius:10px;padding:12px 14px;border:1px solid var(--border);transition:background 0.3s,border-color 0.3s}
 .reading-cell .rc-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:5px}
 .reading-cell .rc-val{font-size:13px;font-weight:500;color:var(--text);word-break:break-all}
-
-.sidebar-footer{
-  margin-top:auto;
-  padding-top:16px;border-top:1px solid var(--border);
-  font-size:10px;color:var(--muted);line-height:1.6;
-  transition:border-color 0.3s;
-}
-
+.finger-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:10px;font-weight:600;margin-top:10px;transition:all 0.3s}
+.finger-on{background:var(--greenb);color:var(--green);border:1px solid rgba(45,212,160,0.25)}
+.finger-off{background:rgba(90,98,128,0.15);color:var(--muted);border:1px solid var(--border)}
+.finger-dot{width:6px;height:6px;border-radius:50%}
+.sidebar-footer{margin-top:auto;padding-top:16px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);line-height:1.6;transition:border-color 0.3s}
 .leg-line{width:20px;height:2px;border-radius:2px}
+.stale-note{font-size:10px;color:var(--muted);margin-top:4px}
 </style>
 </head>
 <body>
-
 <div class="topbar">
   <div class="brand">
     <div class="brand-icon">♥</div>
-    <div>
-      <h1>VitalSense</h1>
-      <span>Remote Patient Monitoring</span>
-    </div>
+    <div><h1>VitalSense</h1><span>Remote Patient Monitoring</span></div>
   </div>
   <div class="topbar-right">
-    <div class="device-chip">ESP32-S3 · MAX30102</div>
-
-    <!-- TOGGLE -->
-    <div class="theme-toggle" id="themeToggle">
+    <div class="device-chip" id="device_chip">ESP32-S3 · MAX30102</div>
+    <div class="theme-toggle">
       <button class="toggle-btn" id="btn_dark" onclick="setTheme('dark')" title="Dark mode">🌙</button>
       <button class="toggle-btn" id="btn_light" onclick="setTheme('light')" title="Light mode">☀️</button>
     </div>
-
     <div class="live-badge"><div class="pulse-dot"></div>LIVE</div>
   </div>
 </div>
@@ -236,7 +99,6 @@ body{
       <div class="m-card-accent" style="background:var(--hr)"></div>
       <div class="tag">Heart Rate</div>
       <div class="m-val" id="hr_val" style="color:var(--hr);text-align:center">--<span class="m-unit">BPM</span></div>
-      <div id="hr_badge" class="badge" style="display:none"></div>
       <div class="ecg-container">
         <div class="ecg-track">
           <svg width="360" height="52" viewBox="0 0 360 52" fill="none">
@@ -249,7 +111,8 @@ body{
           </svg>
         </div>
       </div>
-      <div class="m-sub">Polling every 3s</div>
+      <div id="finger_status" class="finger-pill finger-off"><div class="finger-dot" style="background:var(--muted)"></div>Waiting for finger</div>
+      <div class="m-sub" style="margin-top:6px">Polling every 3s</div>
     </div>
 
     <div class="m-card">
@@ -259,12 +122,11 @@ body{
         <svg width="130" height="80" viewBox="0 0 130 80">
           <path d="M15,75 A55,55 0 0,1 115,75" fill="none" stroke="var(--s3)" stroke-width="10" stroke-linecap="round"/>
           <path id="arc_path" d="M15,75 A55,55 0 0,1 115,75" fill="none" stroke="#38b6ff" stroke-width="10" stroke-linecap="round"
-            stroke-dasharray="173" stroke-dashoffset="173" style="transition:stroke-dashoffset 0.8s ease"/>
+            stroke-dasharray="173" stroke-dashoffset="173" style="transition:stroke-dashoffset 0.8s ease,stroke 0.4s"/>
           <text x="65" y="80" text-anchor="middle" fill="#38b6ff" font-size="26" font-weight="700" font-family="system-ui" id="arc_text">--</text>
           <text x="65" y="94" text-anchor="middle" fill="var(--muted)" font-size="10" font-family="system-ui">SpO₂ %</text>
         </svg>
       </div>
-      <div id="spo2_badge" class="badge" style="display:none;margin:0 auto"></div>
     </div>
 
     <div class="reading-row">
@@ -275,6 +137,16 @@ body{
       <div class="reading-cell">
         <div class="rc-label">Updated</div>
         <div class="rc-val" id="timestamp" style="color:var(--muted2)">--</div>
+      </div>
+    </div>
+    <div class="reading-row">
+      <div class="reading-cell">
+        <div class="rc-label">Device</div>
+        <div class="rc-val" id="device_id" style="color:var(--muted2)">--</div>
+      </div>
+      <div class="reading-cell">
+        <div class="rc-label">Last seen</div>
+        <div class="rc-val" id="last_seen" style="color:var(--muted2)">--</div>
       </div>
     </div>
 
@@ -309,6 +181,14 @@ body{
         <div class="s-val" id="avg_hr" style="color:var(--hr)">--</div>
       </div>
       <div class="stat-box">
+        <div class="s-label">Min HR</div>
+        <div class="s-val" id="min_hr" style="color:var(--spo2)">--</div>
+      </div>
+      <div class="stat-box">
+        <div class="s-label">Max HR</div>
+        <div class="s-val" id="max_hr" style="color:var(--hr)">--</div>
+      </div>
+      <div class="stat-box">
         <div class="s-label">Session Avg SpO₂</div>
         <div class="s-val" id="avg_spo2" style="color:var(--spo2)">--</div>
       </div>
@@ -324,7 +204,6 @@ body{
           <div class="sec-title">Heart Rate Detail</div>
           <div class="sec-sub">BPM over time · color-coded by range</div>
         </div>
-
       </div>
       <div class="chart-wrap"><canvas id="hrDetailChart"></canvas></div>
     </div>
@@ -335,6 +214,8 @@ body{
 const BASE = 'https://esp32-heart-rate-dashboard.onrender.com';
 const HEADERS = { 'Authorization': 'Bearer test123' };
 let mainChart, hrChart;
+let lastTimestamp = null;
+let lastSeenInterval = null;
 
 function getThemeColors() {
   const s = getComputedStyle(document.documentElement);
@@ -349,7 +230,7 @@ function getThemeColors() {
 function updateChartTheme() {
   if (!mainChart || !hrChart) return;
   const c = getThemeColors();
-  const applyScale = (chart) => {
+  [mainChart, hrChart].forEach(chart => {
     Object.values(chart.options.scales).forEach(sc => {
       if (sc.grid) sc.grid.color = c.grid;
       if (sc.ticks) sc.ticks.color = sc.ticks._customColor || c.tick;
@@ -358,9 +239,7 @@ function updateChartTheme() {
     chart.options.plugins.tooltip.titleColor = c.tick;
     chart.options.plugins.tooltip.bodyColor = c.text;
     chart.update('none');
-  };
-  applyScale(mainChart);
-  applyScale(hrChart);
+  });
 }
 
 function setTheme(t) {
@@ -370,142 +249,159 @@ function setTheme(t) {
   setTimeout(updateChartTheme, 50);
 }
 
+function hrColor(bpm) {
+  if (!bpm || bpm === '--') return 'var(--hr)';
+  if (bpm < 60 || bpm > 100) return 'var(--amber)';
+  return 'var(--hr)';
+}
+
+function spo2Color(v) {
+  if (!v) return '#38b6ff';
+  if (v < 90) return '#ff5c6a';
+  if (v < 95) return '#f5a623';
+  return '#38b6ff';
+}
+
+function setFingerStatus(on) {
+  const el = document.getElementById('finger_status');
+  if (on) {
+    el.className = 'finger-pill finger-on';
+    el.innerHTML = '<div class="finger-dot" style="background:var(--green)"></div>Finger detected';
+  } else {
+    el.className = 'finger-pill finger-off';
+    el.innerHTML = '<div class="finger-dot" style="background:var(--muted)"></div>Waiting for finger';
+  }
+}
+
+function startLastSeenCounter(tsString) {
+  if (lastSeenInterval) clearInterval(lastSeenInterval);
+  const tsMs = new Date(tsString).getTime();
+  function update() {
+    const secs = Math.floor((Date.now() - tsMs) / 1000);
+    const el = document.getElementById('last_seen');
+    if (secs < 60) el.textContent = secs + 's ago';
+    else el.textContent = Math.floor(secs / 60) + 'm ago';
+    // finger detected if last reading was within 10 seconds
+    setFingerStatus(secs < 10);
+  }
+  update();
+  lastSeenInterval = setInterval(update, 1000);
+}
+
 function initCharts() {
   const c = getThemeColors();
   const sharedOpts = {
-    responsive:true,maintainAspectRatio:false,
+    responsive:true, maintainAspectRatio:false,
     animation:{duration:500},
     interaction:{mode:'index',intersect:false},
     plugins:{
       legend:{display:false},
-      tooltip:{
-        backgroundColor:c.tooltipBg,
-        borderColor:'rgba(128,128,128,0.2)',
-        borderWidth:1,
-        titleColor:c.tick,
-        bodyColor:c.text,
-        padding:12,cornerRadius:8
-      }
+      tooltip:{backgroundColor:c.tooltipBg,borderColor:'rgba(128,128,128,0.2)',borderWidth:1,titleColor:c.tick,bodyColor:c.text,padding:12,cornerRadius:8}
     }
   };
 
   const ctx1 = document.getElementById('mainChart').getContext('2d');
   mainChart = new Chart(ctx1, {
     type:'line',
-    data:{
-      labels:[],
-      datasets:[
-        {
-          label:'BPM',data:[],
-          borderColor:'#ff5c6a',
-          backgroundColor:(ctx)=>{
-            const g=ctx.chart.ctx.createLinearGradient(0,0,0,220);
-            g.addColorStop(0,'rgba(255,92,106,0.2)');g.addColorStop(1,'rgba(255,92,106,0)');return g;
-          },
-          borderWidth:2,tension:0.45,fill:true,pointRadius:0,pointHoverRadius:5,yAxisID:'y'
-        },
-        {
-          label:'SpO₂ %',data:[],
-          borderColor:'#38b6ff',
-          backgroundColor:(ctx)=>{
-            const g=ctx.chart.ctx.createLinearGradient(0,0,0,220);
-            g.addColorStop(0,'rgba(56,182,255,0.18)');g.addColorStop(1,'rgba(56,182,255,0)');return g;
-          },
-          borderWidth:2,tension:0.45,fill:true,pointRadius:0,pointHoverRadius:5,yAxisID:'y1'
-        }
-      ]
-    },
-    options:{
-      ...sharedOpts,
-      scales:{
-        x:{grid:{color:c.grid},ticks:{color:c.tick,font:{size:10},maxTicksLimit:7}},
-        y:{position:'left',grid:{color:c.grid},ticks:{color:'#ff5c6a',_customColor:'#ff5c6a',font:{size:10}},
-           title:{display:true,text:'BPM',color:'#ff5c6a',font:{size:10}}},
-        y1:{position:'right',grid:{drawOnChartArea:false},
-            ticks:{color:'#38b6ff',_customColor:'#38b6ff',font:{size:10}},
-            title:{display:true,text:'SpO₂ %',color:'#38b6ff',font:{size:10}},min:85,max:100}
-      }
-    }
+    data:{labels:[],datasets:[
+      {label:'BPM',data:[],borderColor:'#ff5c6a',backgroundColor:(ctx)=>{const g=ctx.chart.ctx.createLinearGradient(0,0,0,220);g.addColorStop(0,'rgba(255,92,106,0.2)');g.addColorStop(1,'rgba(255,92,106,0)');return g;},borderWidth:2,tension:0.45,fill:true,pointRadius:0,pointHoverRadius:5,yAxisID:'y'},
+      {label:'SpO₂ %',data:[],borderColor:'#38b6ff',backgroundColor:(ctx)=>{const g=ctx.chart.ctx.createLinearGradient(0,0,0,220);g.addColorStop(0,'rgba(56,182,255,0.18)');g.addColorStop(1,'rgba(56,182,255,0)');return g;},borderWidth:2,tension:0.45,fill:true,pointRadius:0,pointHoverRadius:5,yAxisID:'y1'}
+    ]},
+    options:{...sharedOpts,scales:{
+      x:{grid:{color:c.grid},ticks:{color:c.tick,font:{size:10},maxTicksLimit:7}},
+      y:{position:'left',grid:{color:c.grid},ticks:{color:'#ff5c6a',_customColor:'#ff5c6a',font:{size:10}},title:{display:true,text:'BPM',color:'#ff5c6a',font:{size:10}}},
+      y1:{position:'right',grid:{drawOnChartArea:false},ticks:{color:'#38b6ff',_customColor:'#38b6ff',font:{size:10}},title:{display:true,text:'SpO₂ %',color:'#38b6ff',font:{size:10}},min:85,max:100}
+    }}
   });
 
   const ctx2 = document.getElementById('hrDetailChart').getContext('2d');
   hrChart = new Chart(ctx2, {
     type:'bar',
     data:{labels:[],datasets:[{label:'BPM',data:[],backgroundColor:[],borderRadius:4,borderSkipped:false}]},
-    options:{
-      ...sharedOpts,
-      scales:{
-        x:{grid:{color:c.grid},ticks:{color:c.tick,font:{size:10},maxTicksLimit:8}},
-        y:{grid:{color:c.grid},ticks:{color:c.tick,font:{size:10}},
-           title:{display:true,text:'BPM',color:c.tick,font:{size:10}}}
-      }
-    }
+    options:{...sharedOpts,scales:{
+      x:{grid:{color:c.grid},ticks:{color:c.tick,font:{size:10},maxTicksLimit:8}},
+      y:{grid:{color:c.grid},ticks:{color:c.tick,font:{size:10}},title:{display:true,text:'BPM',color:c.tick,font:{size:10}}}
+    }}
   });
-}
-
-function setArc(v) {
-  const total=173;
-  document.getElementById('arc_path').style.strokeDashoffset = v ? total-(total*Math.min(1,Math.max(0,v/100))) : total;
-  document.getElementById('arc_text').textContent = v ?? '--';
-}
-
-function setBadge(id, valid) {
-  const el=document.getElementById(id);
-  el.style.display='none';
 }
 
 function barColor(bpm) {
   if (!bpm) return 'rgba(128,128,128,0.2)';
-  if (bpm<60) return 'rgba(56,182,255,0.75)';
-  if (bpm<=100) return 'rgba(45,212,160,0.75)';
+  if (bpm < 60) return 'rgba(56,182,255,0.75)';
+  if (bpm <= 100) return 'rgba(45,212,160,0.75)';
   return 'rgba(255,92,106,0.75)';
+}
+
+function setArc(v) {
+  const total = 173;
+  const color = spo2Color(v);
+  document.getElementById('arc_path').style.strokeDashoffset = v ? total-(total*Math.min(1,Math.max(0,v/100))) : total;
+  document.getElementById('arc_path').style.stroke = color;
+  document.getElementById('arc_text').style.fill = color;
+  document.getElementById('arc_text').textContent = v ?? '--';
 }
 
 async function fetchLatest() {
   try {
-    const d=await(await fetch(`${BASE}/latest`, {headers: HEADERS})).json();
-    if(d.message==='no data') return;
-    document.getElementById('hr_val').innerHTML=(d.heart_rate??'--')+'<span class="m-unit">BPM</span>';
+    const d = await(await fetch(`${BASE}/latest`, {headers:HEADERS})).json();
+    if (d.message === 'no data') return;
+
+    const hr = d.heart_rate ?? '--';
+    const hrEl = document.getElementById('hr_val');
+    hrEl.innerHTML = hr + '<span class="m-unit">BPM</span>';
+    hrEl.style.color = hrColor(hr);
+
     setArc(d.spo2);
-    if(d.hr_valid!==undefined) setBadge('hr_badge',d.hr_valid);
-    if(d.spo2_valid!==undefined) setBadge('spo2_badge',d.spo2_valid);
-    if(d.session_id) document.getElementById('session_id').textContent=d.session_id;
-    if(d.timestamp) document.getElementById('timestamp').textContent=new Date(d.timestamp).toLocaleTimeString();
-  } catch(e){}
+
+    if (d.session_id) document.getElementById('session_id').textContent = d.session_id;
+    if (d.device_id) {
+      document.getElementById('device_id').textContent = d.device_id;
+      document.getElementById('device_chip').textContent = d.device_id + ' · MAX30102';
+    }
+    if (d.timestamp) {
+      document.getElementById('timestamp').textContent = new Date(d.timestamp).toLocaleTimeString();
+      startLastSeenCounter(d.timestamp);
+    }
+  } catch(e) {}
 }
 
 async function fetchHistory() {
   try {
-    const d=await(await fetch(`${BASE}/history`, {headers: HEADERS})).json();
-    if(!d.readings?.length) return;
-    const readings=[...d.readings].reverse().slice(-10);
-    const labels=readings.map(r=>new Date(r.timestamp).toLocaleTimeString());
-    const hrVals=readings.map(r=>r.heart_rate);
-    const spo2Vals=readings.map(r=>r.spo2);
+    const d = await(await fetch(`${BASE}/history`, {headers:HEADERS})).json();
+    if (!d.readings?.length) return;
 
-    mainChart.data.labels=labels;
-    mainChart.data.datasets[0].data=hrVals;
-    mainChart.data.datasets[1].data=spo2Vals;
+    const readings = [...d.readings].reverse().slice(-10);
+    const labels = readings.map(r => new Date(r.timestamp).toLocaleTimeString());
+    const hrVals = readings.map(r => r.heart_rate);
+    const spo2Vals = readings.map(r => r.spo2);
+
+    mainChart.data.labels = labels;
+    mainChart.data.datasets[0].data = hrVals;
+    mainChart.data.datasets[1].data = spo2Vals;
     mainChart.update('none');
 
-    hrChart.data.labels=labels;
-    hrChart.data.datasets[0].data=hrVals;
-    hrChart.data.datasets[0].backgroundColor=hrVals.map(barColor);
+    hrChart.data.labels = labels;
+    hrChart.data.datasets[0].data = hrVals;
+    hrChart.data.datasets[0].backgroundColor = hrVals.map(barColor);
     hrChart.update('none');
 
-    const vHR=hrVals.filter(v=>v!=null);
-    const vSPO2=spo2Vals.filter(v=>v!=null);
-    if(vHR.length) document.getElementById('avg_hr').textContent=Math.round(vHR.reduce((a,b)=>a+b,0)/vHR.length)+' BPM';
-    if(vSPO2.length) document.getElementById('avg_spo2').textContent=(vSPO2.reduce((a,b)=>a+b,0)/vSPO2.length).toFixed(1)+'%';
-    document.getElementById('reading_count').textContent=d.readings.length;
-  } catch(e){}
+    const vHR = hrVals.filter(v => v != null);
+    const vSPO2 = spo2Vals.filter(v => v != null);
+    if (vHR.length) {
+      document.getElementById('avg_hr').textContent = Math.round(vHR.reduce((a,b)=>a+b,0)/vHR.length) + ' BPM';
+      document.getElementById('min_hr').textContent = Math.min(...vHR) + ' BPM';
+      document.getElementById('max_hr').textContent = Math.max(...vHR) + ' BPM';
+    }
+    if (vSPO2.length) document.getElementById('avg_spo2').textContent = (vSPO2.reduce((a,b)=>a+b,0)/vSPO2.length).toFixed(1) + '%';
+    document.getElementById('reading_count').textContent = d.readings.length;
+  } catch(e) {}
 }
 
 setTheme('dark');
 initCharts();
 fetchLatest();
 fetchHistory();
-setInterval(()=>{fetchLatest();fetchHistory();},3000);
+setInterval(()=>{ fetchLatest(); fetchHistory(); }, 3000);
 </script>
 </body>
 </html>
