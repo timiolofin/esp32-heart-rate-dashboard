@@ -145,6 +145,22 @@ cd backend && pytest test_main.py -v
 
 ---
 
+## CI/CD
+
+**Platform:** GitHub Actions  
+**Workflow file:** `.github/workflows/test.yml`  
+**Trigger:** Every push and pull request to `main`
+
+**Pipeline steps:**
+1. Checkout repository
+2. Set up Python 3.12
+3. Install `backend/requirements.txt`
+4. Run `pytest test_main.py -v` from the `backend/` directory
+
+Pass/fail status is reported as a commit check on every push. All 15 tests are expected to pass.
+
+---
+
 ## Requirements Coverage
 
 | Requirement | Status |
@@ -163,6 +179,7 @@ cd backend && pytest test_main.py -v
 | Session-based collection via session_id | Done |
 | Docker-ready | Dockerfile present |
 | Logging | Python `logging` module — all POSTs logged |
+| CI/CD pipeline | GitHub Actions — pytest runs on every push to main |
 
 ---
 
@@ -173,5 +190,5 @@ cd backend && pytest test_main.py -v
 - Hardware fix for MAX30102 clone board LED resistor issue for more consistent PPG signal
 - User authentication on the dashboard
 - Anomaly detection — alert when BPM goes outside normal range
-- Full Docker + CI/CD deployment pipeline
+- Full Docker Compose deployment with automated build pipeline
 - Input range validation on sensor fields

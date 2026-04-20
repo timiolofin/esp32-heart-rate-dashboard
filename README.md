@@ -182,6 +182,7 @@ Expected: **15 passed**
 | Database | SQLite |
 | Frontend | HTML + JavaScript |
 | Deployment | Render (cloud) |
+| CI/CD | GitHub Actions (pytest on every push) |
 | Security | Bearer token |
 
 ---
@@ -189,6 +190,9 @@ Expected: **15 passed**
 ## Repository Structure
 
 ```
+.github/
+    workflows/
+        test.yml
 backend/
     main.py
     dashboard.html
@@ -262,6 +266,7 @@ https://timiolofin.github.io/esp32-heart-rate-dashboard/backend/dashboard.html
 - [x] Live dashboard with trend charts
 - [x] Auth on all GET and POST endpoints
 - [x] 15 passing backend unit tests
+- [x] GitHub Actions CI — runs pytest on every push to main
 - [x] Full spec documentation
 
 ---

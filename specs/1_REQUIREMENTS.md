@@ -29,6 +29,7 @@ The system is a cloud-connected physiological monitoring platform that collects 
 - The system must support multiple concurrent devices
 - The backend must log all incoming requests
 - The system must be deployable using Docker
+- The repository must include a CI/CD pipeline that automatically runs the test suite on every push
 
 ---
 
